@@ -1,4 +1,6 @@
+[misc]
+disable = ["dnf"]
+
 [linux]
 bootc = true
 rpm_ostree = false
-dnf = false
