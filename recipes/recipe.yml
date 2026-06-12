@@ -85,6 +85,7 @@ modules:
       - Blur my Shell
       - Clipboard History
       - Tiling Shell
+      - Caffeine
 
   - type: gschema-overrides
     include:
