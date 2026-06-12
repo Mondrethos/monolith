@@ -3,3 +3,17 @@ enabled-extensions=['appindicatorsupport@rgcjonas.gmail.com', 'blur-my-shell@aun
 
 [org.gnome.desktop.interface]
 color-scheme='prefer-dark'
+
+[org.gnome.settings-daemon.plugins.media-keys]
+mic-mute=['<Super>backslash']
+custom-keybindings=['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1/']
+
+[org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/]
+name='Open Terminal'
+command='ptyxis'
+binding='<Super>t'
+
+[org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1/]
+name='Open Browser'
+command='brave-origin-nightly'
+binding='<Super>b'
