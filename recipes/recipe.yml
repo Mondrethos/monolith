@@ -31,7 +31,6 @@ modules:
     install:
       packages:
         # Basics
-        - nano
         - fish
         - git
         - curl
@@ -93,7 +92,6 @@ modules:
         install:
           - org.gnome.Loupe
           - it.mijorus.gearlever
-          - app.devsuite.Ptyxis
           - io.github.kolunmi.Bazaar
           - com.ranfdev.DistroShelf
           - com.mattjakeman.ExtensionManager
