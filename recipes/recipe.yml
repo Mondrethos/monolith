@@ -30,16 +30,38 @@ modules:
 
     install:
       packages:
+        # Basics
         - nano
         - fish
+        - git
+        - curl
+
+        # Tailscale
         - tailscale
+
+        # Updating helper
         - topgrade
+
+        # Steam/controller support
         - steam-devices
 
+        # Gaming tools
+        - gamescope
+        - gamemode
+        - mangohud
+        - goverlay
+        - vkBasalt
+        - vulkan-tools
+        - winetricks
+        - protontricks
+        - evtest
+
+        # Brave Origin
         - repo: brave-browser
           packages:
             - brave-origin
 
+        # Layered Steam RPM
         - repo: fedora-steam
           install-weak-deps: false
           packages:
@@ -72,6 +94,7 @@ modules:
         scope: system
         install:
           - org.gnome.Loupe
+          - app.devsuite.Ptyxis
           - io.github.kolunmi.Bazaar
           - com.mattjakeman.ExtensionManager
           - com.vysp3r.ProtonPlus
