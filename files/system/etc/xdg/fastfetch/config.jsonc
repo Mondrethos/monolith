@@ -13,7 +13,7 @@
         }
     },
     "display": {
-        "separator": "  ",
+        "separator": " \uea9f ",
         "color": {
             "keys": "light_blue"
         }
@@ -21,7 +21,7 @@
     "modules": [
         {
             "type": "title",
-            "key": " ",
+            "key": " \uf007",
             "color": {
                 "user": "light_blue",
                 "at": "white",
@@ -31,72 +31,72 @@
         "break",
         {
             "type": "os",
-            "key": " 󰣛",
+            "key": " \udb82\udcdb",
             "format": "{pretty-name}"
         },
         {
             "type": "kernel",
-            "key": " ",
+            "key": " \uf17c",
             "format": "{1} {2}"
         },
         {
             "type": "uptime",
-            "key": " 󰅐"
+            "key": " \udb80\udd50"
         },
         "break",
         {
             "type": "host",
-            "key": " 󰾰"
+            "key": " \udb83\udfb0"
         },
         {
             "type": "cpu",
-            "key": " 󰻠"
+            "key": " \udb83\udee0"
         },
         {
             "type": "gpu",
-            "key": " 󰍛"
+            "key": " \udb80\udf5b"
         },
         {
             "type": "memory",
-            "key": " "
+            "key": " \uefc5"
         },
         {
             "type": "disk",
-            "key": " ",
+            "key": " \uf0a0",
             "hideFS": "overlay"
         },
         {
             "type": "display",
-            "key": " 󰍹"
+            "key": " \udb80\udf79"
         },
         {
             "type": "battery",
-            "key": " "
+            "key": " \uf242"
         },
         {
             "type": "gamepad",
-            "key": " 󰖺"
+            "key": " \udb81\uddba"
         },
         "break",
         {
             "type": "de",
-            "key": " 󰕮"
+            "key": " \udb81\udd6e"
         },
         {
             "type": "wm",
-            "key": " "
+            "key": " \uf488"
         },
         {
             "type": "shell",
-            "key": " "
+            "key": " \uf489"
         },
         {
             "type": "terminal",
-            "key": " "
+            "key": " \ue795"
         },
         {
             "type": "packages",
-            "key": " 󰏖"
+            "key": " \udb80\udfd6"
         },
         "break",
         {
