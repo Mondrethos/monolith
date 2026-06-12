@@ -1,5 +1,5 @@
 [org.gnome.shell]
-enabled-extensions=['appindicatorsupport@rgcjonas.gmail.com', 'blur-my-shell@aunetx', 'clipboard-history@alexsaveau.dev', 'tilingshell@ferrarodomenico.com']
+enabled-extensions=['appindicatorsupport@rgcjonas.gmail.com', 'blur-my-shell@aunetx', 'clipboard-history@alexsaveau.dev', 'tilingshell@ferrarodomenico.com', 'caffeine@patapon.info']
 
 [org.gnome.desktop.interface]
 color-scheme='prefer-dark'
