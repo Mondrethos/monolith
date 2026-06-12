@@ -24,11 +24,7 @@
     "cpu",
     "gpu",
     "memory",
-{
-  "type": "disk",
-  "folders": "/var/home:/mnt/games",
-  "hideFolders": "/"
-},
+    "disk",
     "colors"
   ]
 }
