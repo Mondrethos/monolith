@@ -1,0 +1,3 @@
+[linux]
+bootc = true
+rpm_ostree = false
