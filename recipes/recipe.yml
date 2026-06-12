@@ -116,6 +116,9 @@ modules:
 
         # Make fish the default shell for newly-created users.
         useradd -D -s /usr/bin/fish
+
+        # Compile GDM dconf defaults, including the Monolith login logo.
+        dconf update
         
   - type: os-release
     properties:
