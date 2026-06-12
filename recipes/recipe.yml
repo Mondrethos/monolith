@@ -19,12 +19,12 @@ modules:
         - lilay/topgrade
 
       files:
-        - https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
+        - https://brave-browser-rpm-nightly.s3.brave.com/brave-browser-nightly.repo
         - https://pkgs.tailscale.com/stable/fedora/tailscale.repo
         - https://negativo17.org/repos/fedora-steam.repo
 
       keys:
-        - https://brave-browser-rpm-release.s3.brave.com/brave-core.asc
+        - https://brave-browser-rpm-nightly.s3.brave.com/brave-core-nightly.asc
         - https://pkgs.tailscale.com/stable/fedora/repo.gpg
         - https://negativo17.org/repos/RPM-GPG-KEY-slaanesh
 
@@ -59,15 +59,10 @@ modules:
         - evtest
 
         # Brave Origin
-        - repo: brave-browser
-          packages:
-            - brave-origin
+        - brave-origin-nightly
 
         # Layered Steam RPM
-        - repo: fedora-steam
-          install-weak-deps: false
-          packages:
-            - steam
+        - steam
 
     remove:
       packages:
