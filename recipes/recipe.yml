@@ -67,6 +67,7 @@ modules:
       packages:
         - firefox
         - firefox-langpacks
+        - gnome-software
 
   - type: systemd
     system:
