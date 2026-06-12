@@ -1,5 +1,6 @@
 [org.gnome.shell]
 enabled-extensions=['appindicatorsupport@rgcjonas.gmail.com', 'blur-my-shell@aunetx', 'clipboard-history@alexsaveau.dev', 'tilingshell@ferrarodomenico.com', 'caffeine@patapon.info']
+favorite-apps=['org.gnome.Ptyxis.desktop', 'org.gnome.Nautilus.desktop', 'steam.desktop', 'io.github.kolunmi.Bazaar.desktop']
 
 [org.gnome.desktop.interface]
 color-scheme='prefer-dark'
