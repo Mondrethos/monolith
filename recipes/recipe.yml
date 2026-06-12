@@ -110,6 +110,7 @@ modules:
           - io.github.wivrn.wivrn
           - io.github.Faugus.faugus-launcher
           - com.system76.Popsicle
+          - com.discordapp.Discord
 
       - scope: user
 
