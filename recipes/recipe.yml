@@ -96,6 +96,7 @@ modules:
           - org.gnome.Loupe
           - app.devsuite.Ptyxis
           - io.github.kolunmi.Bazaar
+          - com.ranfdev.DistroShelf
           - com.mattjakeman.ExtensionManager
           - com.vysp3r.ProtonPlus
           - com.github.zocker_160.SyncThingy
