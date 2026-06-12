@@ -35,6 +35,8 @@ modules:
         - fish
         - git
         - curl
+        - btop
+        - fastfetch
 
         # Tailscale
         - tailscale
