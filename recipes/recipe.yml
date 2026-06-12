@@ -128,5 +128,7 @@ modules:
       HOME_URL: https://github.com/Mondrethos/monolith
       DOCUMENTATION_URL: https://github.com/Mondrethos/monolith
       BUG_REPORT_URL: https://github.com/Mondrethos/monolith/issues
-
+  
+  - type: initramfs
+  
   - type: signing
