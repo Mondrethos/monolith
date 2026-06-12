@@ -1,13 +1,4 @@
-# monolith &nbsp; [![bluebuild build badge](https://github.com/mondrethos/monolith/actions/workflows/build.yml/badge.svg)](https://github.com/mondrethos/monolith/actions/workflows/build.yml)
-
-See the [BlueBuild docs](https://blue-build.org/how-to/setup/) for quick setup instructions for setting up your own repository based on this template.
-
-After setup, it is recommended you update this README to describe your custom image.
-
-## Installation
-
-> [!WARNING]  
-> [This is an experimental feature](https://www.fedoraproject.org/wiki/Changes/OstreeNativeContainerStable), try at your own discretion.
+Monolith is my personal Fedora Atomic desktop image, built with BlueBuild on top of Universal Blue’s Silverblue Main image. It keeps the base close to Fedora Silverblue while adding my preferred desktop defaults, GNOME extensions, system Flatpaks, gaming tools, Tailscale, Brave Origin, and layered Steam support. The image is rebuilt automatically and published to GHCR for rebasing or ISO generation.
 
 To rebase an existing atomic Fedora installation to the latest build:
 
@@ -29,10 +20,6 @@ To rebase an existing atomic Fedora installation to the latest build:
   ```
 
 The `latest` tag will automatically point to the latest build. That build will still always use the Fedora version specified in `recipe.yml`, so you won't get accidentally updated to the next major version.
-
-## ISO
-
-If build on Fedora Atomic, you can generate an offline ISO with the instructions available [here](https://blue-build.org/how-to/generate-iso/#_top). These ISOs cannot unfortunately be distributed on GitHub for free due to large sizes, so for public projects something else has to be used for hosting.
 
 ## Verification
 
