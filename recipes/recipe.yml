@@ -107,7 +107,16 @@ modules:
           - com.discordapp.Discord
 
       - scope: user
+      
+  - type: script
+    snippets:
+      - |
+        # Make fish an allowed login shell.
+        grep -qxF /usr/bin/fish /etc/shells || echo /usr/bin/fish >> /etc/shells
 
+        # Make fish the default shell for newly-created users.
+        useradd -D -s /usr/bin/fish
+        
   - type: os-release
     properties:
       NAME: Monolith
