@@ -1,0 +1,14 @@
+[org/gnome/Ptyxis]
+profile-uuids=['monolith']
+default-profile-uuid='monolith'
+
+[org/gnome/Ptyxis/Profiles]
+default-profile-uuid='monolith'
+
+[org/gnome/Ptyxis/Profiles/monolith]
+label='Monolith'
+use-system-font=false
+font-name='JetBrainsMono Nerd Font Mono 11'
+use-custom-command=true
+custom-command='/usr/bin/fish'
+login-shell=false
