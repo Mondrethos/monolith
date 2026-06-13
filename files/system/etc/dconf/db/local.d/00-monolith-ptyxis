@@ -2,9 +2,6 @@
 profile-uuids=['monolith']
 default-profile-uuid='monolith'
 
-[org/gnome/Ptyxis/Profiles]
-default-profile-uuid='monolith'
-
 [org/gnome/Ptyxis/Profiles/monolith]
 label='Monolith'
 use-system-font=false
