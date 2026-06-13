@@ -71,7 +71,12 @@ modules:
     system:
       enabled:
         - tailscaled.service
-
+  
+  - type: fonts
+    fonts:
+      nerd-fonts:
+        - JetBrainsMono
+        
   - type: gnome-extensions
     install:
       - AppIndicator and KStatusNotifierItem Support
