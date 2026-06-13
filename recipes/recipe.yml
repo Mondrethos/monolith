@@ -1,31 +1,24 @@
 ---
 # yaml-language-server: $schema=https://schema.blue-build.org/recipe-v1.json
-
 name: monolith
 description: Personal Fedora Atomic image based on UBlue Silverblue Main, with GNOME defaults, gaming tools, Tailscale, Brave Origin, and my preferred apps.
-
 base-image: ghcr.io/ublue-os/silverblue-main
 image-version: 44
-
 modules:
   - type: files
     files:
       - source: system
         destination: /
-
   - type: dnf
     repos:
       copr:
         - lilay/topgrade
-
       files:
         - https://brave-browser-rpm-nightly.s3.brave.com/brave-browser-nightly.repo
         - https://negativo17.org/repos/fedora-steam.repo
-
       keys:
         - https://brave-browser-rpm-nightly.s3.brave.com/brave-core-nightly.asc
         - https://negativo17.org/repos/RPM-GPG-KEY-slaanesh
-
     install:
       packages:
         # Basics
@@ -34,16 +27,12 @@ modules:
         - curl
         - btop
         - fastfetch
-
         # Tailscale
         - tailscale
-
         # Updating helper
         - topgrade
-
         # Steam/controller support
         - steam-devices
-
         # Gaming tools
         - gamescope
         - gamemode
@@ -54,29 +43,23 @@ modules:
         - winetricks
         - protontricks
         - evtest
-
         # Brave Origin
         - brave-origin-nightly
-
         # Layered Steam RPM
         - steam
-
     remove:
       packages:
         - firefox
         - firefox-langpacks
         - gnome-software
-
   - type: systemd
     system:
       enabled:
         - tailscaled.service
-  
   - type: fonts
     fonts:
       nerd-fonts:
         - JetBrainsMono
-        
   - type: gnome-extensions
     install:
       - AppIndicator and KStatusNotifierItem Support
@@ -84,11 +67,9 @@ modules:
       - Clipboard History
       - Tiling Shell
       - Caffeine
-
   - type: gschema-overrides
     include:
       - zz1-gnome-extensions.gschema.override
-
   - type: default-flatpaks
     configurations:
       - notify: false
@@ -111,31 +92,23 @@ modules:
           - com.github.tchx84.Flatseal
           - org.mozilla.Thunderbird
           - com.discordapp.Discord
-
       - scope: user
         notify: false
-      
-- type: script
+  - type: script
     snippets:
       - |
         # Compile GDM dconf defaults.
         dconf update
-
         # Preinstall Fisher + Pure into /etc/skel for new users.
-
         mkdir -p /etc/skel/.config/fish
-
         tmp="$(mktemp)"
         curl -fsSL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish -o "$tmp"
-
         env HOME=/etc/skel XDG_CONFIG_HOME=/etc/skel/.config FISHER_BOOTSTRAP="$tmp" fish --no-config -c '
             source "$FISHER_BOOTSTRAP"
             fisher install jorgebucaran/fisher
             fisher install pure-fish/pure
         '
-
         rm -f "$tmp"
-        
   - type: os-release
     properties:
       NAME: Monolith
@@ -147,7 +120,5 @@ modules:
       HOME_URL: https://github.com/Mondrethos/monolith
       DOCUMENTATION_URL: https://github.com/Mondrethos/monolith
       BUG_REPORT_URL: https://github.com/Mondrethos/monolith/issues
-  
   - type: initramfs
-  
   - type: signing
