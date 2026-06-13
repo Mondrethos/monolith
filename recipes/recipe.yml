@@ -85,6 +85,7 @@ modules:
         scope: system
         install:
           - org.gnome.Loupe
+          - org.gnome.SimpleScan
           - it.mijorus.gearlever
           - io.github.kolunmi.Bazaar
           - com.ranfdev.DistroShelf
