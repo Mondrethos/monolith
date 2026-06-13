@@ -22,12 +22,3 @@ binding='<Super>t'
 name='Open Browser'
 command='brave-origin-nightly'
 binding='<Super>b'
-
-[org.gnome.Ptyxis]
-use-system-font=false
-font-name='JetBrainsMono Nerd Font Mono 11'
-
-[org.gnome.Ptyxis.Profile]
-use-custom-command=true
-custom-command='/usr/bin/fish'
-login-shell=false
