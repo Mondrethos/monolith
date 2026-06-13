@@ -41,7 +41,6 @@ modules:
         - gamescope
         - gamemode
         - mangohud
-        - goverlay
         - vkBasalt
         - vulkan-tools
         - winetricks
