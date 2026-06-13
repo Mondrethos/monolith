@@ -108,10 +108,12 @@ modules:
           - io.github.wivrn.wivrn
           - io.github.Faugus.faugus-launcher
           - com.system76.Popsicle
+          - com.github.tchx84.Flatseal
           - org.mozilla.Thunderbird
           - com.discordapp.Discord
 
       - scope: user
+        notify: false
       
   - type: script
     snippets:
