@@ -95,6 +95,10 @@
             "key": " \ue795"
         },
         {
+            "type": "terminalfont",
+            "key": " \uf031"
+        },
+        {
             "type": "packages",
             "key": " \udb80\udfd6"
         },
