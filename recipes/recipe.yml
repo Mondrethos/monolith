@@ -4,11 +4,13 @@ name: monolith
 description: Personal Fedora Atomic image based on UBlue Silverblue Main, with GNOME defaults, gaming tools, Tailscale, Brave Origin, and my preferred apps.
 base-image: ghcr.io/ublue-os/silverblue-main
 image-version: 44
+
 modules:
   - type: files
     files:
       - source: system
         destination: /
+
   - type: dnf
     repos:
       copr:
@@ -52,14 +54,17 @@ modules:
         - firefox
         - firefox-langpacks
         - gnome-software
+
   - type: systemd
     system:
       enabled:
         - tailscaled.service
+
   - type: fonts
     fonts:
       nerd-fonts:
         - JetBrainsMono
+
   - type: gnome-extensions
     install:
       - AppIndicator and KStatusNotifierItem Support
@@ -67,9 +72,11 @@ modules:
       - Clipboard History
       - Tiling Shell
       - Caffeine
+
   - type: gschema-overrides
     include:
       - zz1-gnome-extensions.gschema.override
+
   - type: default-flatpaks
     configurations:
       - notify: false
@@ -94,6 +101,7 @@ modules:
           - com.discordapp.Discord
       - scope: user
         notify: false
+
   - type: script
     snippets:
       - |
@@ -109,6 +117,7 @@ modules:
             fisher install pure-fish/pure
         '
         rm -f "$tmp"
+
   - type: os-release
     properties:
       NAME: Monolith
@@ -120,5 +129,7 @@ modules:
       HOME_URL: https://github.com/Mondrethos/monolith
       DOCUMENTATION_URL: https://github.com/Mondrethos/monolith
       BUG_REPORT_URL: https://github.com/Mondrethos/monolith/issues
+
   - type: initramfs
+
   - type: signing
