@@ -29,6 +29,8 @@ modules:
         - curl
         - btop
         - fastfetch
+        # Gnome Tools
+        - gnome-tweaks
         # Tailscale
         - tailscale
         # Updating helper
