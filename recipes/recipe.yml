@@ -115,11 +115,26 @@ modules:
       - scope: user
         notify: false
       
-  - type: script
+- type: script
     snippets:
       - |
-        # Compile GDM dconf defaults, including the Monolith login logo.
+        # Compile GDM dconf defaults.
         dconf update
+
+        # Preinstall Fisher + Pure into /etc/skel for new users.
+
+        mkdir -p /etc/skel/.config/fish
+
+        tmp="$(mktemp)"
+        curl -fsSL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish -o "$tmp"
+
+        env HOME=/etc/skel XDG_CONFIG_HOME=/etc/skel/.config FISHER_BOOTSTRAP="$tmp" fish --no-config -c '
+            source "$FISHER_BOOTSTRAP"
+            fisher install jorgebucaran/fisher
+            fisher install pure-fish/pure
+        '
+
+        rm -f "$tmp"
         
   - type: os-release
     properties:
