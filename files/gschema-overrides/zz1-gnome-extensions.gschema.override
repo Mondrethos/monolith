@@ -8,8 +8,3 @@ color-scheme='prefer-dark'
 [org.gnome.desktop.search-providers]
 disabled=[]
 sort-order=['io.github.kolunmi.Bazaar.desktop', 'org.gnome.Nautilus.desktop', 'org.gnome.Settings.desktop']
-
-[org.gnome.settings-daemon.plugins.media-keys]
-mic-mute=['<Super>backslash']
-terminal=['<Super>t']
-www=['<Super>b']
