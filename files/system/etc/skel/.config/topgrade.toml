@@ -1,0 +1,6 @@
+[misc]
+ignore_failures = ["ProtonPlus"]
+
+[linux]
+bootc = true
+rpm_ostree = false
