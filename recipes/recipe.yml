@@ -26,6 +26,7 @@ modules:
         # Basics
         - fish
         - git
+        - gh
         - curl
         - btop
         - fastfetch

@@ -1,6 +1,6 @@
 [org.gnome.shell]
 enabled-extensions=['appindicatorsupport@rgcjonas.gmail.com', 'blur-my-shell@aunetx', 'clipboard-history@alexsaveau.dev', 'tilingshell@ferrarodomenico.com', 'caffeine@patapon.info', 'bazaar-integration@kolunmi.github.io']
-favorite-apps=['org.gnome.Ptyxis.desktop', 'org.gnome.Nautilus.desktop', 'steam.desktop', 'io.github.kolunmi.Bazaar.desktop']
+favorite-apps=['org.gnome.Ptyxis.desktop', 'brave-origin-nightly.desktop', 'org.gnome.Nautilus.desktop', 'steam.desktop', 'io.github.kolunmi.Bazaar.desktop']
 
 [org.gnome.desktop.interface]
 color-scheme='prefer-dark'
