@@ -1,10 +1,23 @@
 [org.gnome.shell]
-enabled-extensions=['appindicatorsupport@rgcjonas.gmail.com', 'blur-my-shell@aunetx', 'clipboard-history@alexsaveau.dev', 'tilingshell@ferrarodomenico.com', 'caffeine@patapon.info']
+enabled-extensions=['appindicatorsupport@rgcjonas.gmail.com', 'blur-my-shell@aunetx', 'clipboard-history@alexsaveau.dev', 'tilingshell@ferrarodomenico.com', 'caffeine@patapon.info', 'bazaar-integration@kolunmi.github.io']
 favorite-apps=['org.gnome.Ptyxis.desktop', 'org.gnome.Nautilus.desktop', 'steam.desktop', 'io.github.kolunmi.Bazaar.desktop']
 
 [org.gnome.desktop.interface]
 color-scheme='prefer-dark'
 
 [org.gnome.desktop.search-providers]
-disabled=[]
-sort-order=['io.github.kolunmi.Bazaar.desktop', 'org.gnome.Nautilus.desktop', 'org.gnome.Settings.desktop']
+sort-order=['org.gnome.Settings.desktop', 'org.gnome.Nautilus.desktop', 'io.github.kolunmi.Bazaar.desktop']
+
+[org.gnome.settings-daemon.plugins.media-keys]
+mic-mute=['<Super>backslash']
+custom-keybindings=['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1/']
+
+[org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/]
+binding='<Super>t'
+command='ptyxis --new-window'
+name='Terminal'
+
+[org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1/]
+binding='<Super>b'
+command='brave-origin-nightly'
+name='Browser'

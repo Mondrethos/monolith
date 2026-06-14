@@ -29,6 +29,8 @@ modules:
         - curl
         - btop
         - fastfetch
+        # Fonts
+        - google-noto-fonts-all
         # Gnome Tools
         - gnome-tweaks
         # Tailscale
@@ -85,7 +87,11 @@ modules:
         scope: system
         install:
           - org.gnome.Loupe
+          - org.gnome.Papers
           - org.gnome.SimpleScan
+          - org.gnome.TextEditor
+          - org.gnome.Weather
+          - org.gnome.Calendar
           - it.mijorus.gearlever
           - io.github.kolunmi.Bazaar
           - com.ranfdev.DistroShelf
@@ -107,6 +113,14 @@ modules:
 
   - type: script
     snippets:
+      - |
+        # Install Bazaar Companion GNOME Shell extension system-wide.
+        git clone https://github.com/bazaar-org/bazaar-companion /tmp/bazaar-companion
+        cd /tmp/bazaar-companion
+        meson setup _build --prefix=/usr
+        meson install -C _build
+        cd /
+        rm -rf /tmp/bazaar-companion
       - |
         # Compile GDM dconf defaults.
         dconf update
