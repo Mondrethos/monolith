@@ -116,12 +116,14 @@ modules:
     snippets:
       - |
         # Install Bazaar Companion GNOME Shell extension system-wide.
-        git clone https://github.com/bazaar-org/bazaar-companion /tmp/bazaar-companion
-        cd /tmp/bazaar-companion
-        meson setup _build --prefix=/usr
-        meson install -C _build
-        cd /
-        rm -rf /tmp/bazaar-companion
+        set -euxo pipefail
+        uuid="bazaar-integration@kolunmi.github.io"
+        tmpdir="$(mktemp -d)"
+        git clone --depth=1 https://github.com/bazaar-org/bazaar-companion "$tmpdir"
+        install -d "/usr/share/gnome-shell/extensions/$uuid"
+        cp -a "$tmpdir/src/." "/usr/share/gnome-shell/extensions/$uuid/"
+        chmod -R a+rX "/usr/share/gnome-shell/extensions/$uuid"
+        rm -rf "$tmpdir"
       - |
         # Compile GDM dconf defaults.
         dconf update
