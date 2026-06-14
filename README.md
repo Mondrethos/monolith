@@ -1,3 +1,5 @@
+[![Build](https://github.com/Mondrethos/monolith/actions/workflows/build.yml/badge.svg)](https://github.com/Mondrethos/monolith/actions/workflows/build.yml)
+
 Monolith is my personal Fedora Atomic desktop image, built with BlueBuild on top of Universal Blue’s Silverblue Main image. It keeps the base close to Fedora Silverblue while adding my preferred desktop defaults, GNOME extensions, system Flatpaks, gaming tools, Tailscale, Brave Origin, and layered Steam support. The image is rebuilt automatically and published to GHCR for rebasing or ISO generation.
 
 To rebase an existing atomic Fedora installation to the latest build:
