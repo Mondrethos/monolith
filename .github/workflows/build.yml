@@ -40,3 +40,12 @@ jobs:
 
           # enabled by default, disable if your image is small and you want faster builds
           maximize_build_space: true
+
+  generate-release:
+    name: Generate Release
+    needs: bluebuild
+    # Only after a real (pushed) build — PRs don't publish images to diff.
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/generate_release.yml
