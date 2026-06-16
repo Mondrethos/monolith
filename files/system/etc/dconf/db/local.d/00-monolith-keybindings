@@ -1,0 +1,19 @@
+# Custom keyboard shortcuts.
+#
+# These live in dconf rather than the gschema override because custom
+# keybindings use a *relocatable* schema
+# (org.gnome.settings-daemon.plugins.media-keys.custom-keybinding) keyed by
+# path. GSettings vendor override files cannot set relocatable schemas, so the
+# entries silently stay empty there; the path-based dconf database handles them.
+[org/gnome/settings-daemon/plugins/media-keys]
+custom-keybindings=['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1/']
+
+[org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0]
+binding='<Super>t'
+command='ptyxis --new-window'
+name='Terminal'
+
+[org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1]
+binding='<Super>b'
+command='brave-origin-nightly'
+name='Browser'
