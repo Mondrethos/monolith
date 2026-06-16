@@ -185,6 +185,7 @@ modules:
           - org.gnome.Calculator
           - org.gnome.clocks
           - org.gnome.font-viewer
+          - org.gnome.baobab
           - org.gnome.Characters
           - org.gnome.Showtime
           - it.mijorus.gearlever
