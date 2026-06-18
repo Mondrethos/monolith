@@ -60,6 +60,9 @@ modules:
         - firefox
         - firefox-langpacks
         - gnome-software
+        # Use distrobox exclusively; toolbox is redundant and its label-based
+        # detection collides with distrobox-managed boxes (see topgrade toolbx).
+        - toolbox
 
   - type: script
     snippets:

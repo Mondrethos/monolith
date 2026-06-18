@@ -1,5 +1,6 @@
 [misc]
 ignore_failures = ["protonplus"]
+disable = ["toolbx"]
 
 [linux]
 bootc = true
