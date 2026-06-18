@@ -5,6 +5,7 @@ on:
         "00 06 * * *" # build at 06:00 UTC every day
         # (20 minutes after last ublue images start building)
   push:
+    branches: [main] # feature branches build via pull_request; only main publishes
     paths-ignore: # don't rebuild if only documentation has changed
       - "**.md"
 
@@ -44,8 +45,9 @@ jobs:
   generate-release:
     name: Generate Release
     needs: bluebuild
-    # Only after a real (pushed) build — PRs don't publish images to diff.
-    if: github.event_name != 'pull_request'
+    # Only on main: PRs don't publish images to diff, and pushes to feature
+    # branches must not create releases or re-point the release tag.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
     uses: ./.github/workflows/generate_release.yml
