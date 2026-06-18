@@ -44,8 +44,9 @@ jobs:
   generate-release:
     name: Generate Release
     needs: bluebuild
-    # Only after a real (pushed) build — PRs don't publish images to diff.
-    if: github.event_name != 'pull_request'
+    # Only on main: PRs don't publish images to diff, and pushes to feature
+    # branches must not create releases or re-point the release tag.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
     uses: ./.github/workflows/generate_release.yml
