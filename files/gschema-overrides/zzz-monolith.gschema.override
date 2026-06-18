@@ -1,5 +1,5 @@
 [org.gnome.shell]
-enabled-extensions=['appindicatorsupport@rgcjonas.gmail.com', 'blur-my-shell@aunetx', 'clipboard-history@alexsaveau.dev', 'tilingshell@ferrarodomenico.com', 'caffeine@patapon.info', 'bazaar-integration@kolunmi.github.io', 'add-to-steam@pupper.space', 'restartto@tiagoporsch.github.io']
+enabled-extensions=['appindicatorsupport@rgcjonas.gmail.com', 'blur-my-shell@aunetx', 'clipboard-history@alexsaveau.dev', 'tilingshell@ferrarodomenico.com', 'caffeine@patapon.info', 'bazaar-integration@kolunmi.github.io', 'add-to-steam@pupper.space', 'restartto@tiagoporsch.github.io', 'gnome-ui-tune@itstime.tech']
 disabled-extensions=['user-theme@gnome-shell-extensions.gcampax.github.com', 'dash-to-dock@micxgx.gmail.com', 'dash-to-panel@jderose9.github.com']
 favorite-apps=['brave-origin-nightly.desktop', 'org.gnome.Ptyxis.desktop', 'org.gnome.Nautilus.desktop', 'steam.desktop', 'io.github.kolunmi.Bazaar.desktop']
 
