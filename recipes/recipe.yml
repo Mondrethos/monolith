@@ -169,6 +169,7 @@ modules:
       - Restart To
       - Dash to Dock
       - Dash to Panel
+      - Gnome 4x, 5x UI Improvements
 
   - type: gschema-overrides
     include:
