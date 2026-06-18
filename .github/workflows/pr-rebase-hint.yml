@@ -1,0 +1,56 @@
+name: PR Rebase Hint
+
+# Post a one-time comment on each PR with the rebase command for that PR's
+# test image (pr-<number>-<image-version>), so it can be tried on a real
+# install before merging. The tag is constant for the PR's lifetime, so a
+# single comment on open is enough.
+on:
+  pull_request:
+    types: [opened, reopened]
+
+permissions: {}
+
+jobs:
+  rebase-hint:
+    name: Post rebase command
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # read image-version from the recipe
+      pull-requests: write # post the comment
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Comment the PR test-build rebase command
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          owner="${OWNER,,}"
+          version="$(awk '/^image-version:/{print $2; exit}' recipes/recipe.yml)"
+          [ -n "$version" ] || { echo "image-version not found in recipes/recipe.yml" >&2; exit 1; }
+          image="ghcr.io/${owner}/monolith"
+          tag="pr-${PR_NUMBER}-${version}"
+
+          cat > body.md <<EOF
+          ### 🧪 Test this PR on a real install
+
+          **Once the build check on this PR passes**, a signed test image is published to \`${image}:${tag}\`. From an existing monolith install (which already has the signing policy), rebase onto it:
+
+          \`\`\`bash
+          rpm-ostree rebase ostree-image-signed:docker://${image}:${tag}
+          systemctl reboot
+          \`\`\`
+
+          The tag is rebuilt on every new commit here, so \`rpm-ostree upgrade\` pulls the latest build. When you're done testing, return to the released image:
+
+          \`\`\`bash
+          rpm-ostree rebase ostree-image-signed:docker://${image}:latest
+          \`\`\`
+
+          _The test tag stops updating once this PR is merged or closed._
+          EOF
+
+          gh pr comment "$PR_NUMBER" --body-file body.md
