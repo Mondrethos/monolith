@@ -37,7 +37,7 @@ jobs:
           cat > body.md <<EOF
           ### 🧪 Test this PR on a real install
 
-          Each successful build of this PR publishes a signed test image to \`${image}:${tag}\`. From an existing monolith install (which already has the signing policy), rebase onto it:
+          **Once the build check on this PR passes**, a signed test image is published to \`${image}:${tag}\`. From an existing monolith install (which already has the signing policy), rebase onto it:
 
           \`\`\`bash
           rpm-ostree rebase ostree-image-signed:docker://${image}:${tag}
