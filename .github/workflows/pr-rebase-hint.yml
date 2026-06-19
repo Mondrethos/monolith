@@ -19,7 +19,7 @@ jobs:
       pull-requests: write # post the comment
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Comment the PR test-build rebase command
         env:
