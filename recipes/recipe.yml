@@ -151,6 +151,10 @@ modules:
         - monolith-firstboot-label.service
         # scx_loader picks the default sched-ext scheduler at boot.
         - scx_loader.service
+    user:
+      enabled:
+        # Vicinae's launcher daemon; must be running to summon the window.
+        - vicinae.service
 
   - type: fonts
     fonts:
@@ -170,6 +174,7 @@ modules:
       - Dash to Dock
       - Dash to Panel
       - Gnome 4x, 5x UI Improvements
+      - Vicinae
 
   - type: gschema-overrides
     include:
@@ -235,6 +240,18 @@ modules:
           mesa-vulkan-drivers
         dnf5 -y config-manager setopt terra.enabled=false
         dnf5 -y config-manager setopt "fedora-steam".enabled=false
+      - |
+        # Install the Vicinae launcher from Terra, then leave the repo disabled.
+        # terra-release is already on the image from the mesa swap above, but the
+        # repo was switched off; re-add it transiently with --repofrompath so
+        # vicinae resolves, then turn the persisted repo back off. vicinae is
+        # only carried by Terra, so it bakes into the image and updates on
+        # rebase rather than from an enabled repo at runtime.
+        set -euxo pipefail
+        dnf5 -y install --nogpgcheck \
+          --repofrompath terra,https://repos.fyralabs.com/terra\$releasever \
+          terra-release vicinae
+        dnf5 -y config-manager setopt terra.enabled=false
       - |
         # Install Bazaar Companion GNOME Shell extension system-wide.
         set -euxo pipefail
