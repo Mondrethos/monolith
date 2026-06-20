@@ -237,21 +237,20 @@ modules:
         dnf5 -y config-manager setopt terra.enabled=false
         dnf5 -y config-manager setopt "fedora-steam".enabled=false
       - |
-        # Install the Vicinae launcher from Terra, then leave the repo disabled.
-        # terra-release is already on the image from the mesa swap above, but the
-        # repo was switched off; re-add it transiently with --repofrompath so
-        # vicinae resolves, then turn the persisted repo back off. vicinae is
-        # only carried by Terra, so it bakes into the image and updates on
-        # rebase rather than from an enabled repo at runtime.
+        # Install the Vicinae launcher from Terra. terra-release (added by the
+        # mesa swap above) already ships the terra repo on disk but left it
+        # disabled, so re-enable it just for this transaction with --enable-repo,
+        # mirroring the mesa swap's own --enable-repo=terra-mesa. Reusing the
+        # on-disk repo avoids the duplicate-id error a second --repofrompath
+        # would cause, and leaves the repo disabled in the final image. vicinae
+        # is only carried by Terra, so it bakes in and updates on rebase rather
+        # than from an enabled repo at runtime.
         set -euxo pipefail
-        dnf5 -y install --nogpgcheck \
-          --repofrompath terra,https://repos.fyralabs.com/terra\$releasever \
-          terra-release vicinae
-        dnf5 -y config-manager setopt terra.enabled=false
-        # Enable Vicinae's per-user launcher daemon for every user. This is done
-        # here rather than in the systemd module because that module runs before
-        # this script installs the package, so the unit would not yet exist; the
-        # `--global enable` is exactly what the module does for user units.
+        dnf5 --enable-repo=terra -y install vicinae
+        # Enable Vicinae's per-user launcher daemon for every user. The systemd
+        # module runs before this script installs the package, so the unit would
+        # not yet exist there; --global enable is what that module does for user
+        # units.
         systemctl --global enable vicinae.service
       - |
         # Install Bazaar Companion GNOME Shell extension system-wide.
