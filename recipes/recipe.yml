@@ -151,10 +151,6 @@ modules:
         - monolith-firstboot-label.service
         # scx_loader picks the default sched-ext scheduler at boot.
         - scx_loader.service
-    user:
-      enabled:
-        # Vicinae's launcher daemon; must be running to summon the window.
-        - vicinae.service
 
   - type: fonts
     fonts:
@@ -252,6 +248,11 @@ modules:
           --repofrompath terra,https://repos.fyralabs.com/terra\$releasever \
           terra-release vicinae
         dnf5 -y config-manager setopt terra.enabled=false
+        # Enable Vicinae's per-user launcher daemon for every user. This is done
+        # here rather than in the systemd module because that module runs before
+        # this script installs the package, so the unit would not yet exist; the
+        # `--global enable` is exactly what the module does for user units.
+        systemctl --global enable vicinae.service
       - |
         # Install Bazaar Companion GNOME Shell extension system-wide.
         set -euxo pipefail
