@@ -6,7 +6,7 @@
 # path. GSettings vendor override files cannot set relocatable schemas, so the
 # entries silently stay empty there; the path-based dconf database handles them.
 [org/gnome/settings-daemon/plugins/media-keys]
-custom-keybindings=['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1/']
+custom-keybindings=['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom2/']
 
 [org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0]
 binding='<Super>t'
@@ -17,3 +17,15 @@ name='Terminal'
 binding='<Super>b'
 command='brave-origin-nightly'
 name='Browser'
+
+[org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom2]
+binding='<Super>space'
+command='vicinae toggle'
+name='Vicinae'
+
+# Super+Space is GNOME's default 'switch input source'; clear it (and its
+# reverse) so the Vicinae bind above wins. Lives here rather than the gschema
+# override only to keep the conflicting bind next to its replacement.
+[org/gnome/desktop/wm/keybindings]
+switch-input-source=@as []
+switch-input-source-backward=@as []

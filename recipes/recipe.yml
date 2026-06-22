@@ -170,6 +170,7 @@ modules:
       - Dash to Dock
       - Dash to Panel
       - Gnome 4x, 5x UI Improvements
+      - Vicinae
 
   - type: gschema-overrides
     include:
@@ -235,6 +236,25 @@ modules:
           mesa-vulkan-drivers
         dnf5 -y config-manager setopt terra.enabled=false
         dnf5 -y config-manager setopt "fedora-steam".enabled=false
+      - |
+        # Install the Vicinae launcher from Terra. terra-release (added by the
+        # mesa swap above) already ships the terra repo on disk but left it
+        # disabled, so re-enable it just for this transaction with --enable-repo,
+        # mirroring the mesa swap's own --enable-repo=terra-mesa. Reusing the
+        # on-disk repo avoids the duplicate-id error a second --repofrompath
+        # would cause. vicinae is only carried by Terra, so it bakes in and
+        # updates on rebase rather than from an enabled repo at runtime.
+        set -euxo pipefail
+        dnf5 --enable-repo=terra -y install vicinae
+        # Explicitly leave the terra repo disabled in the final image. The
+        # --enable-repo above is only transaction-scoped, but make the end state
+        # unambiguous now that this is the last block to touch terra.
+        dnf5 -y config-manager setopt terra.enabled=false
+        # Enable Vicinae's per-user launcher daemon for every user. The systemd
+        # module runs before this script installs the package, so the unit would
+        # not yet exist there; --global enable is what that module does for user
+        # units.
+        systemctl --global enable vicinae.service
       - |
         # Install Bazaar Companion GNOME Shell extension system-wide.
         set -euxo pipefail
