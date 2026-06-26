@@ -55,46 +55,54 @@ modules:
           mesa-libGL.i686 \
           mesa-libEGL.i686
 
-        # 3. Build kmod-nvidia against the CachyOS kernel with akmodsbuild (the
-        #    root-safe builder akmods itself points to). Download akmod-nvidia
-        #    only to extract its kmod SRPM -- never install it, so its root-failing
-        #    %post never runs. gnome-base.yml leaves exactly one kernel in
-        #    /usr/lib/modules and installed kernel-cachyos-devel-matched, which
-        #    lays down /usr/src/kernels/$KVER. A genuine compile failure (e.g. the
-        #    driver not supporting this kernel) surfaces here as akmodsbuild's own
-        #    build output rather than an opaque transaction error.
+        # 3. Build + install kmod-nvidia against the CachyOS kernel the same way
+        #    Bazzite/ublue-os/akmods do: `akmods --force --kernels $KVER --kmod
+        #    nvidia`, run as root. akmods internally drops to the unprivileged
+        #    `akmods` user (via runuser) to run akmodsbuild, which is why this
+        #    works where a direct `akmodsbuild` call as root is refused ("Not to
+        #    be used as root"). akmods then installs the built kmod itself.
+        #
+        #    akmods locates the kmod from /usr/src/akmods/<name>-kmod.latest, which
+        #    the akmod-nvidia package ships. We never install akmod-nvidia (its
+        #    kmodtool %post would try the same build as root and fail the rpm
+        #    transaction); instead we download it and stage just its
+        #    /usr/src/akmods payload (SRPM + the .latest symlink). gnome-base.yml
+        #    leaves exactly one kernel in /usr/lib/modules with matching
+        #    kernel-cachyos-devel-matched headers at /usr/src/kernels/$KVER.
         KVER="$(ls /usr/lib/modules)"
         test "$(printf '%s\n' "$KVER" | wc -l)" -eq 1 \
           || { echo "expected exactly one kernel in /usr/lib/modules, found: $KVER" >&2; exit 1; }
         test -d "/usr/src/kernels/$KVER" \
           || { echo "no kernel-devel headers at /usr/src/kernels/$KVER" >&2; exit 1; }
 
-        mkdir -p /tmp/akmod-src /tmp/akmod-out
+        mkdir -p /tmp/akmod-src /usr/src/akmods
         dnf5 -y download --destdir /tmp/akmod-src akmod-nvidia
         ( cd /tmp/akmod-src && rpm2cpio akmod-nvidia-*.rpm | cpio -idm )
-        srpm="$(find /tmp/akmod-src -name 'nvidia-kmod-*.src.rpm' | head -1)"
-        test -n "$srpm" || { echo "could not find nvidia-kmod SRPM inside akmod-nvidia" >&2; exit 1; }
+        cp -a /tmp/akmod-src/usr/src/akmods/. /usr/src/akmods/
+        ls /usr/src/akmods/nvidia-kmod.latest \
+          || { echo "akmod-nvidia did not provide /usr/src/akmods/nvidia-kmod.latest" >&2; exit 1; }
 
-        akmodsbuild --kernels "$KVER" --outputdir /tmp/akmod-out "$srpm"
-        ko_rpm="$(find /tmp/akmod-out -name 'kmod-nvidia-*.rpm' | head -1)"
-        test -n "$ko_rpm" || { echo "akmodsbuild produced no kmod rpm" >&2; exit 1; }
-
-        # 4. Install the built kmod together with the userspace in ONE transaction.
-        #    kmod-nvidia Provides the virtual `nvidia-kmod`, satisfying the
-        #    userspace, so akmod-nvidia is never pulled; and the userspace provides
-        #    nvidia-kmod-common, which kmod-nvidia in turn requires (the two have a
-        #    cyclic dep, hence one transaction). The built kmod's own %post is just
-        #    depmod, which is fine as root.
-        dnf5 --enable-repo=terra-mesa -y install --nogpgcheck \
-          "$ko_rpm" \
-          nvidia-driver \
-          nvidia-driver-libs \
-          nvidia-driver-libs.i686 \
-          nvidia-settings
+        # Build (and install) the module; dump the akmods build log on failure so a
+        # genuine compile error against this kernel is visible rather than opaque.
+        akmods --force --kernels "$KVER" --kmod nvidia || {
+          echo "===== akmods nvidia build log ====="
+          cat /var/cache/akmods/nvidia/*.failed.log 2>/dev/null || true
+          echo "===== end akmods nvidia build log ====="
+          exit 1
+        }
 
         find "/usr/lib/modules/$KVER" -name 'nvidia*.ko*' | grep -q . \
           || { echo "nvidia kmod was not built for $KVER" >&2; exit 1; }
         depmod -a "$KVER"
+
+        # 4. Install the nvidia userspace. The kmod-nvidia akmods just installed
+        #    Provides the virtual `nvidia-kmod`, so the userspace is satisfied by it
+        #    and akmod-nvidia is never pulled.
+        dnf5 --enable-repo=terra-mesa -y install --nogpgcheck \
+          nvidia-driver \
+          nvidia-driver-libs \
+          nvidia-driver-libs.i686 \
+          nvidia-settings
 
         # 4. Module options: enable DRM kernel mode setting (required for the
         #    Wayland GDM session and GNOME on nvidia), the nvidia fbdev console,
