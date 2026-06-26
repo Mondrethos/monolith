@@ -34,44 +34,45 @@ modules:
         curl -fsSL https://negativo17.org/repos/fedora-nvidia.repo \
           -o /etc/yum.repos.d/fedora-nvidia.repo
 
-        # 2. Install the akmods framework and the 32-bit mesa the nvidia i686
-        #    libs pull in transitively (nvidia-driver-libs.i686 ->
+        # 2. Install the akmods framework + build toolchain + dnf5 download
+        #    plugin, the nvidia userspace driver, and the 32-bit mesa the nvidia
+        #    i686 libs pull in transitively (nvidia-driver-libs.i686 ->
         #    libglvnd-gles.i686 -> mesa-libEGL.i686). gnome-base.yml's Terra mesa
         #    swap excludes Fedora mesa and versionlocks the 64-bit Terra mesa, so
         #    the i686 mesa must come from Terra too, at the same locked version;
         #    re-enabling the on-disk terra-mesa repo for this transaction (as the
-        #    swap and the vicinae install do) provides the matching build.
-        #    gcc/make/elfutils-libelf-devel are already present from the base.
+        #    swap and the vicinae install do) provides the matching build. The
+        #    nvidia userspace scriptlets are harmless here (they only warn about
+        #    the absent bootloader).
         dnf5 --enable-repo=terra-mesa -y install \
-          akmods kmodtool kernel-rpm-macros \
+          akmods kmodtool kernel-rpm-macros dnf5-plugins \
+          gcc gcc-c++ make elfutils-libelf-devel \
           mesa-libGL.i686 \
-          mesa-libEGL.i686
-
-        # 3. Install the driver + akmod, then compile the module against the
-        #    CachyOS kernel.
-        #
-        #    akmod-nvidia's kmodtool-generated %posttrans auto-runs akmods during
-        #    the rpm transaction. In this container build that is both wrong (it
-        #    targets the runner's kernel, not ours) and opaque (a build failure
-        #    surfaces only as "Rpm transaction failed" with no log). So shim
-        #    akmods to a no-op across the install -- the same trick gnome-base.yml
-        #    uses for the kernel-install hooks -- then restore it and build
-        #    explicitly against the CachyOS kernel, dumping the build log so any
-        #    compile error is visible. gnome-base.yml leaves exactly one kernel in
-        #    /usr/lib/modules and installed kernel-cachyos-devel-matched, which
-        #    lays down /usr/src/kernels/$KVER for the build.
-        cp -a /usr/sbin/akmods /usr/sbin/akmods.real
-        printf '%s\n' '#!/bin/sh' 'exit 0' > /usr/sbin/akmods
-        chmod +x /usr/sbin/akmods
-
-        dnf5 --enable-repo=terra-mesa -y install \
+          mesa-libEGL.i686 \
           nvidia-driver \
           nvidia-driver-libs \
           nvidia-driver-libs.i686 \
-          nvidia-settings \
-          akmod-nvidia
+          nvidia-settings
 
-        mv -f /usr/sbin/akmods.real /usr/sbin/akmods
+        # 3. Build the nvidia module against the CachyOS kernel.
+        #
+        #    akmod-nvidia ships the kmod source SRPM, but its kmodtool %post
+        #    auto-builds by running akmods, which refuses to run as root ("Not to
+        #    be used as root; start as user or 'akmodsbuild' instead") and so
+        #    fails the whole rpm transaction in this container build. Shimming
+        #    akmods does not help -- the %post inlines that logic, not the
+        #    /usr/sbin/akmods wrapper -- so install the package with --noscripts
+        #    purely to drop its SRPM into /usr/src/akmods, then build ourselves
+        #    with akmodsbuild, the root-safe builder akmods points to.
+        #
+        #    gnome-base.yml leaves exactly one kernel in /usr/lib/modules and
+        #    installed kernel-cachyos-devel-matched, which lays down
+        #    /usr/src/kernels/$KVER for the build. A compile failure (e.g. the
+        #    driver not supporting this kernel) now surfaces as akmodsbuild's own
+        #    build output rather than an opaque transaction error.
+        mkdir -p /tmp/akmod-src
+        dnf5 -y download --destdir /tmp/akmod-src akmod-nvidia
+        rpm -i --noscripts /tmp/akmod-src/akmod-nvidia-*.rpm
 
         KVER="$(ls /usr/lib/modules)"
         test "$(printf '%s\n' "$KVER" | wc -l)" -eq 1 \
@@ -79,10 +80,13 @@ modules:
         test -d "/usr/src/kernels/$KVER" \
           || { echo "no kernel-devel headers at /usr/src/kernels/$KVER" >&2; exit 1; }
 
-        akmods --force --kernels "$KVER" || true
-        echo "===== akmods build logs ====="
-        cat /var/cache/akmods/*.log /var/cache/akmods/*/*.log 2>/dev/null || true
-        echo "===== end akmods build logs ====="
+        mkdir -p /tmp/akmod-out
+        akmodsbuild --kernels "$KVER" --outputdir /tmp/akmod-out \
+          /usr/src/akmods/nvidia-kmod-*.src.rpm
+
+        ko_rpm="$(find /tmp/akmod-out -name 'kmod-nvidia-*.rpm' | head -1)"
+        test -n "$ko_rpm" || { echo "akmodsbuild produced no kmod rpm" >&2; exit 1; }
+        rpm -i "$ko_rpm"
 
         find "/usr/lib/modules/$KVER" -name 'nvidia*.ko*' | grep -q . \
           || { echo "nvidia kmod was not built for $KVER" >&2; exit 1; }
