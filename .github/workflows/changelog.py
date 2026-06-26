@@ -133,7 +133,7 @@ def main() -> None:
     parser.add_argument("--curr-tag", required=True, help="current image tag, e.g. 20260615")
     parser.add_argument("--prev-release-tag", default="", help="previous release/git tag, e.g. 2026-06-14 (defaults to --prev-tag)")
     parser.add_argument("--curr-release-tag", default="", help="current release/git tag, e.g. 2026-06-15 (defaults to --curr-tag)")
-    parser.add_argument("--image", required=True, help="Full image ref, e.g. ghcr.io/mondrethos/monolith")
+    parser.add_argument("--image", required=True, help="Full image ref, e.g. ghcr.io/mondrethos/monolith-gnome")
     parser.add_argument("--repo", required=True, help="owner/name for commit links")
     parser.add_argument("--workdir", default=".")
     parser.add_argument("--prev-rev", default="", help="git ref of the previous release (for commit range)")

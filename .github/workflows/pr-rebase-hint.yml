@@ -29,9 +29,9 @@ jobs:
         run: |
           set -euo pipefail
           owner="${OWNER,,}"
-          version="$(awk '/^image-version:/{print $2; exit}' recipes/recipe.yml)"
-          [ -n "$version" ] || { echo "image-version not found in recipes/recipe.yml" >&2; exit 1; }
-          image="ghcr.io/${owner}/monolith"
+          version="$(awk '/^image-version:/{print $2; exit}' recipes/recipe-gnome.yml)"
+          [ -n "$version" ] || { echo "image-version not found in recipes/recipe-gnome.yml" >&2; exit 1; }
+          image="ghcr.io/${owner}/monolith-gnome"
           tag="pr-${PR_NUMBER}-${version}"
 
           cat > body.md <<EOF
