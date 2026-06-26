@@ -1,0 +1,162 @@
+---
+# yaml-language-server: $schema=https://schema.blue-build.org/recipe-v1.json
+# NVIDIA stack for the Monolith GNOME NVIDIA edition. Imported via `from-file:`
+# by recipe-gnome-nvidia.yml *after* gnome-base.yml (so the CachyOS kernel and
+# its -devel-matched headers are already in place) and *before* the importing
+# recipe's `initramfs` module (so the freshly built nvidia module is baked into
+# the initramfs).
+#
+# We cannot use BlueBuild's `akmods` module or Universal Blue's prebuilt nvidia
+# images: both ship kernel modules built against the ublue/stock kernel, and
+# this image runs the CachyOS kernel instead. CachyOS removed their own prebuilt
+# nvidia drivers (Feb 2026) and point users at RPMFusion or Negativo17, so we
+# install Negativo17's akmod-nvidia and compile it from source against the
+# CachyOS kernel here, then bake + versionlock it and drop the repo. Same
+# "everything in /usr, nothing left in /etc, nothing to update at runtime"
+# contract as the kernel swap in gnome-base.yml.
+#
+# Module flavour: this is the OPEN kernel module. Negativo17's current driver
+# (610.x) builds only NVIDIA's open-gpu-kernel-modules -- proprietary module
+# support was dropped (it is now only needed for vGPU and lives in the separate
+# nvidia-lts branch). So there is nothing to toggle; the built kmod-nvidia is
+# the open one, which is also NVIDIA's recommendation for Turing+ on Wayland.
+#
+# NOTE on Secure Boot: like the swapped CachyOS kernel itself, this module is
+# unsigned, so the nvidia modules will not load under Secure Boot without an
+# enrolled MOK. This image already assumes Secure Boot is disabled (or a MOK is
+# enrolled) for the custom kernel; nvidia inherits that same assumption.
+modules:
+  - type: script
+    snippets:
+      - |
+        set -euxo pipefail
+
+        # 1. Add the Negativo17 nvidia repo. Its packages are signed with the
+        #    slaanesh GPG key that gnome-base.yml's dnf module already imported
+        #    (it is also used by the negativo17 fedora-steam repo), so gpgcheck
+        #    stays on. The repo file is written to /etc/yum.repos.d only for the
+        #    duration of this build and removed at the end, so the final image
+        #    carries no nvidia repo and cannot pull a mismatched driver.
+        curl -fsSL https://negativo17.org/repos/fedora-nvidia.repo \
+          -o /etc/yum.repos.d/fedora-nvidia.repo
+
+        # 2. Install only the akmods framework + build toolchain + dnf5 download
+        #    plugin + cpio, plus the 32-bit mesa the nvidia i686 libs pull in
+        #    transitively (nvidia-driver-libs.i686 -> libglvnd-gles.i686 ->
+        #    mesa-libEGL.i686). Crucially NO nvidia userspace yet: the userspace
+        #    requires the virtual `nvidia-kmod`, which would drag in akmod-nvidia,
+        #    whose kmodtool %post runs akmods -- and akmods refuses to run as root
+        #    ("Not to be used as root; start as user or 'akmodsbuild' instead"),
+        #    failing the whole rpm transaction. We instead build kmod-nvidia
+        #    ourselves below and let it satisfy `nvidia-kmod`.
+        #
+        #    gnome-base.yml's Terra mesa swap excludes Fedora mesa and versionlocks
+        #    the 64-bit Terra mesa, so the i686 mesa must come from Terra too, at
+        #    the same locked version; re-enabling the on-disk terra-mesa repo for
+        #    this transaction (as the swap and the vicinae install do) provides the
+        #    matching build.
+        dnf5 --enable-repo=terra-mesa -y install \
+          akmods kmodtool kernel-rpm-macros dnf5-plugins cpio \
+          gcc gcc-c++ make elfutils-libelf-devel \
+          mesa-libGL.i686 \
+          mesa-libEGL.i686
+
+        # 3. Build + install kmod-nvidia against the CachyOS kernel the same way
+        #    Bazzite/ublue-os/akmods do: `akmods --force --kernels $KVER --kmod
+        #    nvidia`, run as root. akmods internally drops to the unprivileged
+        #    `akmods` user (via runuser) to run akmodsbuild, which is why this
+        #    works where a direct `akmodsbuild` call as root is refused ("Not to
+        #    be used as root"). akmods then installs the built kmod itself.
+        #
+        #    akmods locates the kmod from /usr/src/akmods/<name>-kmod.latest, which
+        #    the akmod-nvidia package ships. We never install akmod-nvidia (its
+        #    kmodtool %post would try the same build as root and fail the rpm
+        #    transaction); instead we download it and stage just its
+        #    /usr/src/akmods payload (SRPM + the .latest symlink). gnome-base.yml
+        #    leaves exactly one kernel in /usr/lib/modules with matching
+        #    kernel-cachyos-devel-matched headers at /usr/src/kernels/$KVER.
+        KVER="$(ls /usr/lib/modules)"
+        test "$(printf '%s\n' "$KVER" | wc -l)" -eq 1 \
+          || { echo "expected exactly one kernel in /usr/lib/modules, found: $KVER" >&2; exit 1; }
+        test -d "/usr/src/kernels/$KVER" \
+          || { echo "no kernel-devel headers at /usr/src/kernels/$KVER" >&2; exit 1; }
+
+        mkdir -p /tmp/akmod-src /usr/src/akmods
+        dnf5 -y download --destdir /tmp/akmod-src akmod-nvidia
+        ( cd /tmp/akmod-src && rpm2cpio akmod-nvidia-*.rpm | cpio -idm )
+        cp -a /tmp/akmod-src/usr/src/akmods/. /usr/src/akmods/
+        ls /usr/src/akmods/nvidia-kmod.latest \
+          || { echo "akmod-nvidia did not provide /usr/src/akmods/nvidia-kmod.latest" >&2; exit 1; }
+
+        # Build the module. akmods also tries to *install* the built rpm, which
+        # fails here ("Could not install newly built RPMs") because kmod-nvidia
+        # requires nvidia-kmod-common (shipped with the userspace, not installed
+        # yet); that self-install failure is expected and akmods leaves the built
+        # rpm in /var/cache/akmods/nvidia/. The compile itself is what matters.
+        # akmods exits 0 even on that install failure, so detect success by the
+        # presence of the built rpm and dump the failed.log otherwise.
+        akmods --force --kernels "$KVER" --kmod nvidia || true
+        mapfile -t ko_rpms < <(find /var/cache/akmods/nvidia -name 'kmod-nvidia-*.rpm' 2>/dev/null)
+        if [ "${#ko_rpms[@]}" -eq 0 ]; then
+          echo "===== akmods nvidia build log ====="
+          cat /var/cache/akmods/nvidia/*.failed.log 2>/dev/null || true
+          echo "===== end akmods nvidia build log ====="
+          echo "akmods did not produce a kmod-nvidia rpm for $KVER" >&2
+          exit 1
+        fi
+
+        # 4. Install the freshly built kmod together with the userspace in ONE
+        #    transaction. kmod-nvidia Provides the virtual `nvidia-kmod` (so
+        #    akmod-nvidia is never pulled) and Requires nvidia-kmod-common (shipped
+        #    by the userspace) -- this cyclic dep only resolves when both are in the
+        #    same transaction, which is why akmods' standalone install failed above.
+        dnf5 --enable-repo=terra-mesa -y install --nogpgcheck \
+          "${ko_rpms[@]}" \
+          nvidia-driver \
+          nvidia-driver-libs \
+          nvidia-driver-libs.i686 \
+          nvidia-settings
+
+        find "/usr/lib/modules/$KVER" -name 'nvidia*.ko*' | grep -q . \
+          || { echo "nvidia kmod not present for $KVER after install" >&2; exit 1; }
+        depmod -a "$KVER"
+
+        # 4. Module options: enable DRM kernel mode setting (required for the
+        #    Wayland GDM session and GNOME on nvidia), the nvidia fbdev console,
+        #    VRAM preservation across suspend/resume/hibernate, and keep nouveau
+        #    blacklisted. /usr/lib/modprobe.d is the vendor path, so this rides
+        #    along with the image and writes nothing to /etc.
+        install -d /usr/lib/modprobe.d
+        cat > /usr/lib/modprobe.d/nvidia-monolith.conf <<'EOF'
+        options nvidia-drm modeset=1 fbdev=1
+        options nvidia NVreg_PreserveVideoMemoryAllocations=1
+        blacklist nouveau
+        options nouveau modeset=0
+        EOF
+
+        # 5. Pull the nvidia modules into the initramfs so KMS is up before the
+        #    display manager starts. The importing recipe's `initramfs` module
+        #    runs dracut after this file and reads dracut.conf.d.
+        install -d /usr/lib/dracut/dracut.conf.d
+        cat > /usr/lib/dracut/dracut.conf.d/99-nvidia.conf <<'EOF'
+        add_drivers+=" nvidia nvidia-modeset nvidia-uvm nvidia-drm "
+        EOF
+
+        # 6. Enable the nvidia system services. They are installed by the dnf
+        #    step above, so enable them in-script here (the systemd module would
+        #    run too early to see them). Guarded so a renamed/absent unit does
+        #    not fail the build; nvidia-powerd is dynamic-boost (laptops) and the
+        #    sleep units preserve VRAM with the modprobe option set above.
+        for unit in nvidia-powerd nvidia-suspend nvidia-resume nvidia-hibernate; do
+          systemctl enable "$unit.service" || echo "warning: could not enable $unit.service"
+        done
+
+        # 7. Versionlock every installed nvidia package so no later transaction
+        #    can pull a driver that mismatches the locked CachyOS kernel, then
+        #    remove the repo entirely. The built kmod is tied to the already
+        #    versionlocked kernel, so the driver stack is fully pinned.
+        mapfile -t nvpkgs < <(rpm -qa --qf '%{NAME}\n' 'nvidia*' 'akmod-nvidia' 'kmod-nvidia*' | sort -u)
+        test "${#nvpkgs[@]}" -gt 0 || { echo "no nvidia packages found to versionlock" >&2; exit 1; }
+        dnf5 versionlock add "${nvpkgs[@]}"
+
+        rm -f /etc/yum.repos.d/fedora-nvidia.repo

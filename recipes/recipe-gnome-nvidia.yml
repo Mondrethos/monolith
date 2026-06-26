@@ -1,0 +1,31 @@
+---
+# yaml-language-server: $schema=https://schema.blue-build.org/recipe-v1.json
+name: monolith-gnome-nvidia
+description: Personal Fedora Atomic image (GNOME edition, NVIDIA) based on UBlue Silverblue Main, with GNOME defaults, gaming tools, Tailscale, Brave Origin, and my preferred apps. NVIDIA driver built against the CachyOS kernel.
+base-image: ghcr.io/ublue-os/silverblue-main
+image-version: 44
+
+modules:
+  # Same shared stack as the plain GNOME edition (incl. the CachyOS kernel swap
+  # and -devel-matched headers the nvidia build below needs)...
+  - from-file: gnome-base.yml
+
+  # ...then the NVIDIA driver, compiled against that kernel. Must sit between the
+  # base and the `initramfs` module so its module is baked into the initramfs.
+  - from-file: nvidia.yml
+
+  - type: os-release
+    properties:
+      NAME: Monolith
+      PRETTY_NAME: Monolith GNOME (NVIDIA)
+      ID: monolith
+      ID_LIKE: fedora
+      VARIANT: GNOME
+      VARIANT_ID: gnome
+      HOME_URL: https://github.com/Mondrethos/monolith
+      DOCUMENTATION_URL: https://github.com/Mondrethos/monolith
+      BUG_REPORT_URL: https://github.com/Mondrethos/monolith/issues
+
+  - type: initramfs
+
+  - type: signing
