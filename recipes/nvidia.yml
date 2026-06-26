@@ -34,13 +34,24 @@ modules:
         curl -fsSL https://negativo17.org/repos/fedora-nvidia.repo \
           -o /etc/yum.repos.d/fedora-nvidia.repo
 
-        # 2. Install the userspace driver + the akmod (kernel-module source) and
-        #    the toolchain akmods needs to compile it. The 32-bit libs
-        #    (nvidia-driver-libs.i686) are required for Steam/Proton/wine, which
-        #    this image ships; gnome-base.yml already excludes 32-bit mesa from
-        #    the steam repo, and nvidia provides its own i686 GL via glvnd.
-        dnf5 -y install \
-          akmods kmodtool gcc make kernel-rpm-macros elfutils-libelf-devel \
+        # 2. Install the akmod toolchain, the userspace driver, the akmod
+        #    (kernel-module source), and the 32-bit driver libs that Steam/
+        #    Proton/wine need (this image ships them).
+        #
+        #    The 32-bit nvidia GL stack pulls in 32-bit mesa transitively
+        #    (nvidia-driver-libs.i686 -> libglvnd-gles.i686 -> mesa-libEGL.i686).
+        #    gnome-base.yml's Terra mesa swap excludes Fedora mesa and
+        #    versionlocks the 64-bit Terra mesa, so the i686 mesa must come from
+        #    Terra too, at the same locked version. We re-enable the on-disk
+        #    terra-mesa repo just for this transaction (mirroring the swap and
+        #    the vicinae install); within this single build its version matches
+        #    the 64-bit mesa already installed and locked, so versionlock is
+        #    satisfied. gcc/make/elfutils-libelf-devel are already present from
+        #    the base, so they are not re-requested here.
+        dnf5 --enable-repo=terra-mesa -y install \
+          akmods kmodtool kernel-rpm-macros \
+          mesa-libGL.i686 \
+          mesa-libEGL.i686 \
           nvidia-driver \
           nvidia-driver-libs \
           nvidia-driver-libs.i686 \
