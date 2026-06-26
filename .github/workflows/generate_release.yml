@@ -37,7 +37,7 @@ jobs:
         run: |
           set -euo pipefail
           owner="${{ github.repository_owner }}"
-          image="ghcr.io/${owner,,}/monolith"
+          image="ghcr.io/${owner,,}/monolith-gnome"
           echo "image=$image" >> "$GITHUB_OUTPUT"
 
           # Date-stamped tags (YYYYMMDD) are one stable reference per build day.
