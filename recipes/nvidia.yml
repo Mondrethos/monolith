@@ -34,59 +34,63 @@ modules:
         curl -fsSL https://negativo17.org/repos/fedora-nvidia.repo \
           -o /etc/yum.repos.d/fedora-nvidia.repo
 
-        # 2. Install the akmods framework + build toolchain + dnf5 download
-        #    plugin, the nvidia userspace driver, and the 32-bit mesa the nvidia
-        #    i686 libs pull in transitively (nvidia-driver-libs.i686 ->
-        #    libglvnd-gles.i686 -> mesa-libEGL.i686). gnome-base.yml's Terra mesa
-        #    swap excludes Fedora mesa and versionlocks the 64-bit Terra mesa, so
-        #    the i686 mesa must come from Terra too, at the same locked version;
-        #    re-enabling the on-disk terra-mesa repo for this transaction (as the
-        #    swap and the vicinae install do) provides the matching build. The
-        #    nvidia userspace scriptlets are harmless here (they only warn about
-        #    the absent bootloader).
+        # 2. Install only the akmods framework + build toolchain + dnf5 download
+        #    plugin + cpio, plus the 32-bit mesa the nvidia i686 libs pull in
+        #    transitively (nvidia-driver-libs.i686 -> libglvnd-gles.i686 ->
+        #    mesa-libEGL.i686). Crucially NO nvidia userspace yet: the userspace
+        #    requires the virtual `nvidia-kmod`, which would drag in akmod-nvidia,
+        #    whose kmodtool %post runs akmods -- and akmods refuses to run as root
+        #    ("Not to be used as root; start as user or 'akmodsbuild' instead"),
+        #    failing the whole rpm transaction. We instead build kmod-nvidia
+        #    ourselves below and let it satisfy `nvidia-kmod`.
+        #
+        #    gnome-base.yml's Terra mesa swap excludes Fedora mesa and versionlocks
+        #    the 64-bit Terra mesa, so the i686 mesa must come from Terra too, at
+        #    the same locked version; re-enabling the on-disk terra-mesa repo for
+        #    this transaction (as the swap and the vicinae install do) provides the
+        #    matching build.
         dnf5 --enable-repo=terra-mesa -y install \
-          akmods kmodtool kernel-rpm-macros dnf5-plugins \
+          akmods kmodtool kernel-rpm-macros dnf5-plugins cpio \
           gcc gcc-c++ make elfutils-libelf-devel \
           mesa-libGL.i686 \
-          mesa-libEGL.i686 \
-          nvidia-driver \
-          nvidia-driver-libs \
-          nvidia-driver-libs.i686 \
-          nvidia-settings
+          mesa-libEGL.i686
 
-        # 3. Build the nvidia module against the CachyOS kernel.
-        #
-        #    akmod-nvidia ships the kmod source SRPM, but its kmodtool %post
-        #    auto-builds by running akmods, which refuses to run as root ("Not to
-        #    be used as root; start as user or 'akmodsbuild' instead") and so
-        #    fails the whole rpm transaction in this container build. Shimming
-        #    akmods does not help -- the %post inlines that logic, not the
-        #    /usr/sbin/akmods wrapper -- so install the package with --noscripts
-        #    purely to drop its SRPM into /usr/src/akmods, then build ourselves
-        #    with akmodsbuild, the root-safe builder akmods points to.
-        #
-        #    gnome-base.yml leaves exactly one kernel in /usr/lib/modules and
-        #    installed kernel-cachyos-devel-matched, which lays down
-        #    /usr/src/kernels/$KVER for the build. A compile failure (e.g. the
-        #    driver not supporting this kernel) now surfaces as akmodsbuild's own
+        # 3. Build kmod-nvidia against the CachyOS kernel with akmodsbuild (the
+        #    root-safe builder akmods itself points to). Download akmod-nvidia
+        #    only to extract its kmod SRPM -- never install it, so its root-failing
+        #    %post never runs. gnome-base.yml leaves exactly one kernel in
+        #    /usr/lib/modules and installed kernel-cachyos-devel-matched, which
+        #    lays down /usr/src/kernels/$KVER. A genuine compile failure (e.g. the
+        #    driver not supporting this kernel) surfaces here as akmodsbuild's own
         #    build output rather than an opaque transaction error.
-        mkdir -p /tmp/akmod-src
-        dnf5 -y download --destdir /tmp/akmod-src akmod-nvidia
-        rpm -i --noscripts /tmp/akmod-src/akmod-nvidia-*.rpm
-
         KVER="$(ls /usr/lib/modules)"
         test "$(printf '%s\n' "$KVER" | wc -l)" -eq 1 \
           || { echo "expected exactly one kernel in /usr/lib/modules, found: $KVER" >&2; exit 1; }
         test -d "/usr/src/kernels/$KVER" \
           || { echo "no kernel-devel headers at /usr/src/kernels/$KVER" >&2; exit 1; }
 
-        mkdir -p /tmp/akmod-out
-        akmodsbuild --kernels "$KVER" --outputdir /tmp/akmod-out \
-          /usr/src/akmods/nvidia-kmod-*.src.rpm
+        mkdir -p /tmp/akmod-src /tmp/akmod-out
+        dnf5 -y download --destdir /tmp/akmod-src akmod-nvidia
+        ( cd /tmp/akmod-src && rpm2cpio akmod-nvidia-*.rpm | cpio -idm )
+        srpm="$(find /tmp/akmod-src -name 'nvidia-kmod-*.src.rpm' | head -1)"
+        test -n "$srpm" || { echo "could not find nvidia-kmod SRPM inside akmod-nvidia" >&2; exit 1; }
 
+        akmodsbuild --kernels "$KVER" --outputdir /tmp/akmod-out "$srpm"
         ko_rpm="$(find /tmp/akmod-out -name 'kmod-nvidia-*.rpm' | head -1)"
         test -n "$ko_rpm" || { echo "akmodsbuild produced no kmod rpm" >&2; exit 1; }
-        rpm -i "$ko_rpm"
+
+        # 4. Install the built kmod together with the userspace in ONE transaction.
+        #    kmod-nvidia Provides the virtual `nvidia-kmod`, satisfying the
+        #    userspace, so akmod-nvidia is never pulled; and the userspace provides
+        #    nvidia-kmod-common, which kmod-nvidia in turn requires (the two have a
+        #    cyclic dep, hence one transaction). The built kmod's own %post is just
+        #    depmod, which is fine as root.
+        dnf5 --enable-repo=terra-mesa -y install --nogpgcheck \
+          "$ko_rpm" \
+          nvidia-driver \
+          nvidia-driver-libs \
+          nvidia-driver-libs.i686 \
+          nvidia-settings
 
         find "/usr/lib/modules/$KVER" -name 'nvidia*.ko*' | grep -q . \
           || { echo "nvidia kmod was not built for $KVER" >&2; exit 1; }
