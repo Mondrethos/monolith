@@ -15,6 +15,12 @@
 # "everything in /usr, nothing left in /etc, nothing to update at runtime"
 # contract as the kernel swap in gnome-base.yml.
 #
+# Module flavour: this is the OPEN kernel module. Negativo17's current driver
+# (610.x) builds only NVIDIA's open-gpu-kernel-modules -- proprietary module
+# support was dropped (it is now only needed for vGPU and lives in the separate
+# nvidia-lts branch). So there is nothing to toggle; the built kmod-nvidia is
+# the open one, which is also NVIDIA's recommendation for Turing+ on Wayland.
+#
 # NOTE on Secure Boot: like the swapped CachyOS kernel itself, this module is
 # unsigned, so the nvidia modules will not load under Secure Boot without an
 # enrolled MOK. This image already assumes Secure Boot is disabled (or a MOK is
