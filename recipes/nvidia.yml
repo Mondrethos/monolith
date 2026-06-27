@@ -160,3 +160,22 @@ modules:
         dnf5 versionlock add "${nvpkgs[@]}"
 
         rm -f /etc/yum.repos.d/fedora-nvidia.repo
+
+  # Sign the freshly built nvidia modules with the Monolith MOK key so they load
+  # under Secure Boot (the kernel enforces module signatures when Secure Boot is
+  # on). Same key/cert as the CachyOS vmlinuz signed in gnome-base.yml, so one
+  # enrolled MOK covers the whole boot+driver chain. Runs after the build/install
+  # above and before the importing recipe's `initramfs` module, so the signed
+  # module is what gets baked into the initramfs.
+  - type: script
+    env:
+      MODULE_NAME: nvidia
+      PUBLIC_KEY_DER_PATH: /etc/pki/akmods/certs/akmods-monolith.der
+    secrets:
+      - type: file
+        source: ./MOK.priv
+        mount:
+          type: file
+          destination: /tmp/certs/private_key.priv
+    scripts:
+      - sign-modules.sh

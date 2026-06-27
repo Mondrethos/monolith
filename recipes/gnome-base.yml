@@ -145,6 +145,25 @@ modules:
           kernel-cachyos-modules \
           kernel-cachyos-devel-matched
 
+  # Sign the swapped CachyOS vmlinuz with the Monolith MOK key so it boots under
+  # Secure Boot. The stock Fedora kernel is signed by Fedora; the CachyOS kernel
+  # is not, so without this it is rejected by shim/GRUB when Secure Boot is on.
+  # The matching cert is baked into the image (PUBLIC_KEY_DER_PATH) and enrolled
+  # as a MOK via the ISO installer; the private key is a build-only secret. Both
+  # GNOME editions sign here so each is Secure-Boot capable; the NVIDIA edition
+  # additionally signs its module in nvidia.yml with this same key.
+  - type: script
+    env:
+      PUBLIC_KEY_DER_PATH: /etc/pki/akmods/certs/akmods-monolith.der
+    secrets:
+      - type: file
+        source: ./MOK.priv
+        mount:
+          type: file
+          destination: /tmp/certs/private_key.priv
+    scripts:
+      - sign-kernel.sh
+
   - type: systemd
     system:
       enabled:

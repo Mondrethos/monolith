@@ -1,0 +1,80 @@
+name: Generate ISO
+
+# Manually build an installable ISO for a published Monolith image. The ISO is
+# only packaging + an Anaconda installer; it carries NO signing key. Its only
+# Secure Boot role is to pre-stage MOK enrollment: it embeds our PUBLIC cert and
+# the enrollment password (below) so the MokManager screen appears on first boot
+# and the user just types the password. The trust itself comes from the kernel +
+# module signatures baked into the image at build time. The cert here MUST be our
+# own (not the BlueBuild/UBlue default), or the enrolled key would not match what
+# signed our kernel and Secure Boot would reject it.
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: Edition to build an ISO for
+        type: choice
+        default: monolith-gnome-nvidia
+        options:
+          - monolith-gnome-nvidia
+          - monolith-gnome
+      tag:
+        description: Published image tag to base the ISO on
+        type: string
+        default: latest
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.image }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Our committed public cert + chosen enrollment password (see openssl.cnf and
+  # the justfile). Passed explicitly to generate-iso below.
+  SECURE_BOOT_URL: https://github.com/Mondrethos/monolith/raw/main/files/system/etc/pki/akmods/certs/akmods-monolith.der
+  ENROLLMENT_PASSWORD: monolith
+
+jobs:
+  generate-iso:
+    name: Generate ISO (${{ inputs.image }}:${{ inputs.tag }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      # ISO builds need a lot of scratch space (image pull + installer build);
+      # reclaim the chunky preinstalled toolchains the runner ships with.
+      - name: Maximize build space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android \
+            /usr/local/share/boost "${AGENT_TOOLSDIRECTORY:-/opt/hostedtoolcache}"
+          sudo docker image prune --all --force || true
+          df -h /
+
+      - name: Install BlueBuild CLI
+        run: bash <(curl -sL https://raw.githubusercontent.com/blue-build/cli/main/install.sh)
+
+      # generate-iso runs as root (privileged container), so log podman in as root
+      # in case the image package is private. Harmless if it is public.
+      - name: Log in to GHCR
+        run: echo "${{ github.token }}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Generate ISO
+        run: |
+          mkdir -p "${{ github.workspace }}/iso-output"
+          sudo bluebuild generate-iso \
+            --variant Silverblue \
+            --secure-boot-url "${SECURE_BOOT_URL}" \
+            --enrollment-password "${ENROLLMENT_PASSWORD}" \
+            --iso-name "${{ inputs.image }}-${{ inputs.tag }}.iso" \
+            --output-dir "${{ github.workspace }}/iso-output" \
+            image "ghcr.io/mondrethos/${{ inputs.image }}:${{ inputs.tag }}"
+          sudo chown -R "$(id -u):$(id -g)" "${{ github.workspace }}/iso-output"
+          ls -lh "${{ github.workspace }}/iso-output"
+
+      - name: Upload ISO
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.image }}-${{ inputs.tag }}-iso
+          path: iso-output/*
+          retention-days: 7
+          if-no-files-found: error

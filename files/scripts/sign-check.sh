@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+#
+# Verify that an (uncompressed) kernel module carries a valid signature from our
+# public cert. Called by sign-modules.sh after each module is signed; fails the
+# build if any signature does not verify. Taken from BlueBuild's base-images.
+
+set -oue pipefail
+
+KERNEL="$1"
+module="$2"
+PUBLIC_CERT="$3"
+
+kmod_sig="/tmp/kmod.sig"
+kmod_p7s="/tmp/kmod.p7s"
+kmod_data="/tmp/kmod.data"
+/usr/src/kernels/"${KERNEL}"/scripts/extract-module-sig.pl -s "${module}" > "${kmod_sig}"
+openssl pkcs7 -inform der -in "${kmod_sig}" -out "${kmod_p7s}"
+/usr/src/kernels/"${KERNEL}"/scripts/extract-module-sig.pl -0 "${module}" > "${kmod_data}"
+if openssl cms -verify -binary -inform PEM \
+    -in "${kmod_p7s}" \
+    -content "${kmod_data}" \
+    -certfile "${PUBLIC_CERT}" \
+    -out "/dev/null" \
+    -nointern -noverify
+  then
+  echo "Signature Verified for ${module}"
+else
+  echo "Signature Failed for ${module}"
+  exit 1
+fi
