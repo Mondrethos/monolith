@@ -29,28 +29,43 @@ jobs:
         run: |
           set -euo pipefail
           owner="${OWNER,,}"
-          version="$(awk '/^image-version:/{print $2; exit}' recipes/recipe-gnome.yml)"
-          [ -n "$version" ] || { echo "image-version not found in recipes/recipe-gnome.yml" >&2; exit 1; }
-          image="ghcr.io/${owner}/monolith-gnome"
-          tag="pr-${PR_NUMBER}-${version}"
 
-          cat > body.md <<EOF
-          ### 🧪 Test this PR on a real install
+          # Enumerate every published edition from its recipe (recipes/recipe-*.yml
+          # is the single source of truth for the image name + Fedora version), so
+          # new editions are picked up automatically without editing this file.
+          {
+            echo "### 🧪 Test this PR on a real install"
+            echo
+            echo "**Once the build checks on this PR pass**, a signed test image is published for each edition. Pick the one matching your hardware and, from an existing Monolith install (which already has the signing policy), rebase onto it:"
+            echo
+          } > body.md
 
-          **Once the build check on this PR passes**, a signed test image is published to \`${image}:${tag}\`. From an existing monolith install (which already has the signing policy), rebase onto it:
+          found=0
+          for recipe in recipes/recipe-*.yml; do
+            [ -e "$recipe" ] || continue
+            name="$(awk '/^name:/{print $2; exit}' "$recipe")"
+            version="$(awk '/^image-version:/{print $2; exit}' "$recipe")"
+            [ -n "$name" ] && [ -n "$version" ] \
+              || { echo "name/image-version not found in $recipe" >&2; exit 1; }
+            found=1
+            image="ghcr.io/${owner}/${name}"
+            tag="pr-${PR_NUMBER}-${version}"
+            {
+              echo "**\`${name}\`**"
+              echo
+              echo "\`\`\`bash"
+              echo "rpm-ostree rebase ostree-image-signed:docker://${image}:${tag}"
+              echo "systemctl reboot"
+              echo "\`\`\`"
+              echo
+            } >> body.md
+          done
+          [ "$found" -eq 1 ] || { echo "no recipes/recipe-*.yml found" >&2; exit 1; }
 
-          \`\`\`bash
-          rpm-ostree rebase ostree-image-signed:docker://${image}:${tag}
-          systemctl reboot
-          \`\`\`
-
-          The tag is rebuilt on every new commit here, so \`rpm-ostree upgrade\` pulls the latest build. When you're done testing, return to the released image:
-
-          \`\`\`bash
-          rpm-ostree rebase ostree-image-signed:docker://${image}:latest
-          \`\`\`
-
-          _The test tag stops updating once this PR is merged or closed._
-          EOF
+          {
+            echo "The tags are rebuilt on every new commit here, so \`rpm-ostree upgrade\` pulls the latest build. When you're done testing, return to your edition's released image (\`:latest\`)."
+            echo
+            echo "_The test tags stop updating once this PR is merged or closed._"
+          } >> body.md
 
           gh pr comment "$PR_NUMBER" --body-file body.md
