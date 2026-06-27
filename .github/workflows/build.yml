@@ -31,6 +31,27 @@ jobs:
           - recipe-gnome.yml
           - recipe-gnome-nvidia.yml
     steps:
+      # Check out ourselves first so the kernel signing key is in the workspace
+      # before the build action runs (it skips its own checkout below).
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # Materialize the Secure Boot (MOK) private key the recipes mount as a
+      # build secret to sign the CachyOS kernel and the nvidia modules. Stored
+      # base64-encoded in the KERNEL_SIGNING_SECRET repo secret; the public cert
+      # is committed in the image tree. See `just generate-secureboot-key`.
+      - name: Extract kernel signing key
+        shell: bash
+        env:
+          KERNEL_SIGNING_SECRET: ${{ secrets.KERNEL_SIGNING_SECRET }}
+        run: |
+          if [ -z "${KERNEL_SIGNING_SECRET}" ]; then
+            echo "::error::KERNEL_SIGNING_SECRET is not set (run 'just generate-secureboot-key' and add it)." >&2
+            exit 1
+          fi
+          echo "${KERNEL_SIGNING_SECRET}" | base64 -d > MOK.priv
+
       # the build is fully handled by the reusable github action
       - name: Build Custom Image
         uses: blue-build/github-action@v1.11
@@ -39,6 +60,8 @@ jobs:
           cosign_private_key: ${{ secrets.SIGNING_SECRET }}
           registry_token: ${{ github.token }}
           pr_event_number: ${{ github.event.number }}
+          # We checked out above (to stage MOK.priv); don't let the action wipe it.
+          skip_checkout: true
 
           # enabled by default, disable if your image is small and you want faster builds
           maximize_build_space: true
