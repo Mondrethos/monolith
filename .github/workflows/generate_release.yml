@@ -84,26 +84,40 @@ jobs:
             echo "prev_rev=" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Extract package lists from both images
+      - name: Extract package lists from every edition
         if: steps.tags.outputs.skip != 'true'
         run: |
           set -euo pipefail
-          image="${{ steps.tags.outputs.image }}"
           qf='%{NAME}\t%{EPOCH}:%{VERSION}-%{RELEASE}\n'
+          prev="${{ steps.tags.outputs.prev }}"
+          curr="${{ steps.tags.outputs.curr }}"
+          mkdir -p pkgs
 
-          podman run --rm "$image:${{ steps.tags.outputs.prev }}" rpm -qa --qf "$qf" | sort > prev-packages.txt
-          podman rmi "$image:${{ steps.tags.outputs.prev }}" || true
-          podman run --rm "$image:${{ steps.tags.outputs.curr }}" rpm -qa --qf "$qf" | sort > curr-packages.txt
-          podman rmi "$image:${{ steps.tags.outputs.curr }}" || true
-
-          echo "prev: $(wc -l < prev-packages.txt) packages, curr: $(wc -l < curr-packages.txt) packages"
+          # One image on disk at a time (pull -> extract -> remove) to stay within
+          # runner disk. An edition with no curr tag isn't in this build (skip it);
+          # one with no prev tag is new (empty prev -> everything shows as added).
+          IFS=',' read -ra images <<< "${{ steps.tags.outputs.images }}"
+          for img in "${images[@]}"; do
+            name="${img##*/}"
+            if podman run --rm "$img:$curr" rpm -qa --qf "$qf" 2>/dev/null | sort > "pkgs/${name}.curr.txt"; then
+              podman rmi "$img:$curr" >/dev/null 2>&1 || true
+            else
+              echo "skip $name: no '$curr' tag"; rm -f "pkgs/${name}.curr.txt"; continue
+            fi
+            if podman run --rm "$img:$prev" rpm -qa --qf "$qf" 2>/dev/null | sort > "pkgs/${name}.prev.txt"; then
+              podman rmi "$img:$prev" >/dev/null 2>&1 || true
+            else
+              echo "no '$prev' tag for $name (new edition); treating as all-added"; : > "pkgs/${name}.prev.txt"
+            fi
+            echo "$name: prev $(wc -l < "pkgs/${name}.prev.txt"), curr $(wc -l < "pkgs/${name}.curr.txt")"
+          done
 
       - name: Generate changelog
         id: changelog
         if: steps.tags.outputs.skip != 'true'
         run: |
           python3 ./.github/workflows/changelog.py \
-            --prev-packages prev-packages.txt --curr-packages curr-packages.txt \
+            --packages-dir pkgs \
             --prev-tag "${{ steps.tags.outputs.prev }}" --curr-tag "${{ steps.tags.outputs.curr }}" \
             --prev-release-tag "${{ steps.tags.outputs.prev_release }}" --curr-release-tag "${{ steps.tags.outputs.curr_release }}" \
             --images "${{ steps.tags.outputs.images }}" \
