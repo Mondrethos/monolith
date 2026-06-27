@@ -40,9 +40,20 @@ jobs:
             echo
           } > body.md
 
-          found=0
+          # List non-NVIDIA editions first (NVIDIA is the niche case), keeping
+          # each group in alphabetical order. Generic, so future flavors slot in.
+          recipes=()
           for recipe in recipes/recipe-*.yml; do
             [ -e "$recipe" ] || continue
+            case "$recipe" in *nvidia*) ;; *) recipes+=("$recipe") ;; esac
+          done
+          for recipe in recipes/recipe-*.yml; do
+            [ -e "$recipe" ] || continue
+            case "$recipe" in *nvidia*) recipes+=("$recipe") ;; esac
+          done
+
+          found=0
+          for recipe in "${recipes[@]}"; do
             name="$(awk '/^name:/{print $2; exit}' "$recipe")"
             version="$(awk '/^image-version:/{print $2; exit}' "$recipe")"
             [ -n "$name" ] && [ -n "$version" ] \
