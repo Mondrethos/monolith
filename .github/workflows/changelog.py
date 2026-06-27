@@ -133,7 +133,7 @@ def main() -> None:
     parser.add_argument("--curr-tag", required=True, help="current image tag, e.g. 20260615")
     parser.add_argument("--prev-release-tag", default="", help="previous release/git tag, e.g. 2026-06-14 (defaults to --prev-tag)")
     parser.add_argument("--curr-release-tag", default="", help="current release/git tag, e.g. 2026-06-15 (defaults to --curr-tag)")
-    parser.add_argument("--image", required=True, help="Full image ref, e.g. ghcr.io/mondrethos/monolith-gnome")
+    parser.add_argument("--images", required=True, help="Comma-separated image refs, one per edition, e.g. ghcr.io/mondrethos/monolith-gnome,ghcr.io/mondrethos/monolith-gnome-nvidia")
     parser.add_argument("--repo", required=True, help="owner/name for commit links")
     parser.add_argument("--workdir", default=".")
     parser.add_argument("--prev-rev", default="", help="git ref of the previous release (for commit range)")
@@ -151,6 +151,9 @@ def main() -> None:
     prev_release = args.prev_release_tag or args.prev_tag
     curr_release = args.curr_release_tag or args.curr_tag
 
+    images = [i.strip() for i in args.images.split(",") if i.strip()]
+    editions = [img.rsplit("/", 1)[-1] for img in images]
+
     title = curr_release
     body = ""
     if args.handwritten:
@@ -160,20 +163,27 @@ def main() -> None:
         f"(https://github.com/{args.repo}/releases/tag/{prev_release}) "
         f"to [`{curr_release}`](https://github.com/{args.repo}/releases/tag/{curr_release}).\n\n"
     )
+    if editions:
+        names = ", ".join(f"`{e}`" for e in editions)
+        body += (
+            f"Editions in this build: {names}. The package changes below reflect "
+            "the shared GNOME base; the NVIDIA edition additionally ships the "
+            "NVIDIA driver.\n\n"
+        )
     body += major_table(prev, curr)
     body += commits_section(args.workdir, args.prev_rev, args.curr_rev, args.repo)
     body += changes_table(prev, curr)
-    body += (
-        "### How to rebase\n"
-        "Rebase to this exact build:\n"
-        "```bash\n"
-        f"rpm-ostree rebase ostree-image-signed:docker://{args.image}:{args.curr_tag}\n"
-        "```\n"
-        "Or track the latest build:\n"
-        "```bash\n"
-        f"rpm-ostree rebase ostree-image-signed:docker://{args.image}:latest\n"
-        "```\n"
-    )
+    body += "### How to rebase\nPick your edition. Rebase to this exact build, or track the latest:\n\n"
+    for img, edition in zip(images, editions):
+        body += (
+            f"**`{edition}`**\n\n"
+            "```bash\n"
+            f"# this exact build\n"
+            f"rpm-ostree rebase ostree-image-signed:docker://{img}:{args.curr_tag}\n"
+            f"# or track the latest build\n"
+            f"rpm-ostree rebase ostree-image-signed:docker://{img}:latest\n"
+            "```\n\n"
+        )
 
     with open(args.changelog, "w") as f:
         f.write(body)

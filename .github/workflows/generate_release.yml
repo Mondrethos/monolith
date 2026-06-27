@@ -37,8 +37,21 @@ jobs:
         run: |
           set -euo pipefail
           owner="${{ github.repository_owner }}"
+          # Diff the GNOME base for package tables (the NVIDIA edition is the same
+          # base plus the driver). monolith-gnome is the canonical base image.
           image="ghcr.io/${owner,,}/monolith-gnome"
           echo "image=$image" >> "$GITHUB_OUTPUT"
+
+          # All published editions (recipes/recipe-*.yml is the source of truth),
+          # non-NVIDIA first, for the per-edition "How to rebase" section.
+          editions=()
+          for r in recipes/recipe-*.yml; do
+            case "$r" in *nvidia*) ;; *) editions+=("ghcr.io/${owner,,}/$(awk '/^name:/{print $2; exit}' "$r")") ;; esac
+          done
+          for r in recipes/recipe-*.yml; do
+            case "$r" in *nvidia*) editions+=("ghcr.io/${owner,,}/$(awk '/^name:/{print $2; exit}' "$r")") ;; esac
+          done
+          ( IFS=,; echo "images=${editions[*]}" >> "$GITHUB_OUTPUT" )
 
           # Date-stamped tags (YYYYMMDD) are one stable reference per build day.
           mapfile -t dates < <(skopeo list-tags "docker://$image" \
@@ -93,7 +106,7 @@ jobs:
             --prev-packages prev-packages.txt --curr-packages curr-packages.txt \
             --prev-tag "${{ steps.tags.outputs.prev }}" --curr-tag "${{ steps.tags.outputs.curr }}" \
             --prev-release-tag "${{ steps.tags.outputs.prev_release }}" --curr-release-tag "${{ steps.tags.outputs.curr_release }}" \
-            --image "${{ steps.tags.outputs.image }}" \
+            --images "${{ steps.tags.outputs.images }}" \
             --repo "${{ github.repository }}" \
             --workdir . \
             --prev-rev "${{ steps.tags.outputs.prev_rev }}" --curr-rev "${{ github.sha }}" \
