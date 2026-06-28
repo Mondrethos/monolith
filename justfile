@@ -2,18 +2,14 @@
 #
 # Secure Boot: the kernel and the out-of-tree modules are signed at build time
 # with a self-managed MOK key (see openssl.cnf). The public cert ships in the
-# image and is enrolled via the ISO installer (BB_GENISO_* below), so users get
-# the MokManager screen on first boot and just type the enrollment password.
+# image; users enroll it after install with `ujust enroll-monolith-secure-boot-key`.
+# The ISO itself is Secure-Boot-agnostic (it just installs the signed image).
 
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
 export BB_REGISTRY := "ghcr.io"
 export BB_REGISTRY_NAMESPACE := "mondrethos"
 
-# Baked into generated ISOs so first-boot MOK enrollment is automatic: the
-# installer pre-stages the cert and MokManager prompts for this password.
-export BB_GENISO_SECURE_BOOT_URL := "https://github.com/Mondrethos/monolith/raw/main/files/system/etc/pki/akmods/certs/akmods-monolith.der"
-export BB_GENISO_ENROLLMENT_PASSWORD := "monolith"
 export BB_GENISO_VARIANT := "Silverblue"
 
 _default:
@@ -37,9 +33,8 @@ generate-secureboot-key:
     @echo "Add MOK.priv to GitHub as the KERNEL_SIGNING_SECRET secret, base64-encoded:"
     @echo "  base64 -w0 MOK.priv | gh secret set KERNEL_SIGNING_SECRET"
 
-# Build an installable ISO for a published image, with Secure Boot key
-# pre-enrollment baked in (BB_GENISO_* above). Pass an image ref or use the
-# default NVIDIA edition.
+# Build an installable ISO for a published image. Pass an image ref or use the
+# default NVIDIA edition. (Secure Boot is image-side, not in the ISO.)
 generate-iso image="ghcr.io/mondrethos/monolith-gnome-nvidia:latest":
     mkdir -p .iso
     bluebuild generate-iso \

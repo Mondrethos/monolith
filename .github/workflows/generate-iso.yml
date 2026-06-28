@@ -1,23 +1,21 @@
 name: Generate ISO
 
-# Manually build an installable ISO for a published Monolith image. The ISO is
-# only packaging + an Anaconda installer; it carries NO signing key. Its only
-# Secure Boot role is to pre-stage MOK enrollment: it embeds our PUBLIC cert and
-# the enrollment password (below) so the MokManager screen appears on first boot
-# and the user just types the password. The trust itself comes from the kernel +
-# module signatures baked into the image at build time. The cert here MUST be our
-# own (not the BlueBuild/UBlue default), or the enrolled key would not match what
-# signed our kernel and Secure Boot would reject it.
+# Manually build an installable ISO for a published Monolith image. The ISO is a
+# dumb installer: it pulls the published image and installs it, nothing more. It
+# deliberately does NOT touch Secure Boot.
 #
-# We call JasonN3/build-container-installer directly instead of going through
-# `bluebuild generate-iso`. The bluebuild wrapper only exposes
-# --variant/--secure-boot-url/--enrollment-password and hides `extra_boot_params`,
-# which we need: the wrapper's default ISO hangs on a grey screen at the
-# end-of-install reboot (systemd#17988 -- the live medium can't be unmounted at
-# shutdown, so the reboot stalls until a hard power-cycle; it reproduces in VMs
-# because it is inherent to the live image, not the firmware). Driving the action
-# directly lets us pass `rd.live.overlay.overlayfs=1` to fix that while keeping
-# the same Secure Boot enrollment via the action's native inputs.
+# Secure Boot is entirely image-side: the kernel and out-of-tree modules are
+# signed at build time with our MOK, the public cert ships inside the image at
+# /etc/pki/akmods/certs/akmods-monolith.der, and the user enrolls it after
+# install with `ujust enroll-monolith-secure-boot-key`. Pre-staging enrollment
+# from the ISO (build-container-installer's secure_boot_key_url/enrollment_password)
+# bought only the convenience of skipping that command, and it is an active
+# footgun -- if the ISO's key ever drifts from the image's key the machine
+# black-screens (cf. ublue/bazzite#688). Keeping the ISO Secure-Boot-agnostic
+# also frees us to pick whatever ISO tool reboots cleanly.
+#
+# We call JasonN3/build-container-installer directly rather than via
+# `bluebuild generate-iso` so we can pass `extra_boot_params`.
 on:
   workflow_dispatch:
     inputs:
@@ -36,12 +34,6 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ inputs.image }}-${{ github.ref }}
   cancel-in-progress: true
-
-env:
-  # Our committed public cert + chosen enrollment password (see openssl.cnf and
-  # the justfile). Passed to the installer below to pre-stage MOK enrollment.
-  SECURE_BOOT_URL: https://github.com/Mondrethos/monolith/raw/main/files/system/etc/pki/akmods/certs/akmods-monolith.der
-  ENROLLMENT_PASSWORD: monolith
 
 jobs:
   generate-iso:
@@ -76,13 +68,10 @@ jobs:
           version: "44"
           variant: Silverblue
           iso_name: ${{ inputs.image }}-${{ inputs.tag }}.iso
-          secure_boot_key_url: ${{ env.SECURE_BOOT_URL }}
-          enrollment_password: ${{ env.ENROLLMENT_PASSWORD }}
-          # Fix for the end-of-install reboot hang (systemd#17988): native
-          # overlayfs unmounts cleanly at shutdown where the legacy dm-based live
-          # overlay leaves the medium busy and stalls the reboot. No RAM cost
-          # (rd.live.ram would need ~16 GB for our ~7 GB image, so it is not an
-          # option here).
+          # Use native overlayfs for the live overlay. NOTE: this alone did NOT
+          # resolve the end-of-install reboot hang (systemd#17988) in testing --
+          # the reboot fix is still being worked out, and may mean changing ISO
+          # tooling now that Secure Boot no longer constrains that choice.
           extra_boot_params: rd.live.overlay.overlayfs=1
 
       - name: Upload ISO
