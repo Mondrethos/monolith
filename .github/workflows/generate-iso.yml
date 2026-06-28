@@ -15,7 +15,7 @@ name: Generate ISO
 # also frees us to pick whatever ISO tool reboots cleanly.
 #
 # We call JasonN3/build-container-installer directly rather than via
-# `bluebuild generate-iso` so we can pass `extra_boot_params`.
+# `bluebuild generate-iso` so we can pass options like `web_ui`.
 on:
   workflow_dispatch:
     inputs:
@@ -43,12 +43,6 @@ jobs:
       contents: read
       packages: read
     steps:
-      # Needed so installer/force-reboot.tmpl is in the workspace, which the
-      # build action mounts at /github/workspace/ inside the build container.
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
       # ISO builds need a lot of scratch space (image pull + installer build);
       # reclaim the chunky preinstalled toolchains the runner ships with.
       - name: Maximize build space
@@ -74,19 +68,16 @@ jobs:
           version: "44"
           variant: Silverblue
           iso_name: ${{ inputs.image }}-${{ inputs.tag }}.iso
-          # Force the installer environment to reboot immediately at end of
-          # install so it doesn't hang tearing down the live root. See the
-          # template for the mechanism. (An earlier rd.live.overlay.overlayfs=1
-          # attempt was a no-op: this is an Anaconda installer image, not a
-          # dmsquash-live image, so rd.live.* params don't apply.)
-          additional_templates: /github/workspace/installer/force-reboot.tmpl
+          # Use Anaconda's newer WebUI installer (Fedora's default since F43).
+          # Trying it as an alternate reboot path after the end-of-install hang
+          # persisted with the classic GTK UI: an earlier overlayfs boot param
+          # and a forced-reboot Lorax template both failed to clear it.
+          web_ui: true
 
       - name: Upload ISO
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.image }}-${{ inputs.tag }}-iso
-          # Explicit filename: with the repo checked out, the workspace root is
-          # no longer just the ISO, so don't upload the whole tree.
           path: ${{ inputs.image }}-${{ inputs.tag }}.iso
           retention-days: 7
           if-no-files-found: error
