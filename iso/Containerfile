@@ -12,5 +12,8 @@
 ARG BASE_IMAGE=ghcr.io/mondrethos/monolith-gnome:latest
 FROM ${BASE_IMAGE}
 
+# Re-declare after FROM so it is visible to RUN; build.sh uses it as the image
+# the Anaconda kickstart installs.
+ARG BASE_IMAGE
 COPY iso.yaml build.sh /src/
-RUN /src/build.sh && rm -rf /src
+RUN INSTALL_IMAGEREF="${BASE_IMAGE}" /src/build.sh && rm -rf /src

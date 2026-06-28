@@ -36,6 +36,61 @@ DRACUT_NO_XATTR=1 dracut -v --force --zstd --reproducible --no-hostonly \
 sed -i "s/^livesys_session=.*/livesys_session=gnome/" /etc/sysconfig/livesys
 systemctl enable livesys.service livesys-late.service
 
+# --- Graphical installer: Anaconda WebUI ---
+# Bake Fedora's Anaconda WebUI into the live session so installing is a
+# click-through "Install to Hard Drive" instead of a hand-typed `bootc install`.
+# Mirrors Bazzite/Bluefin's titanoboa installer hook, trimmed to Monolith: no
+# Secure Boot kickstart (enrollment stays image-side via ujust, see the workflow
+# header) and no Bazzite-specific branding/tooling.
+dnf install -qy anaconda-live anaconda-webui \
+    libblockdev-btrfs libblockdev-lvm libblockdev-dm
+mkdir -p /var/lib/rpm-state   # anaconda-webui expects this to exist
+
+# Anaconda profile keyed to our os-release ID (recipe sets ID=monolith).
+mkdir -p /etc/anaconda/profile.d
+cat >/etc/anaconda/profile.d/monolith.conf <<'EOF'
+[Profile]
+profile_id = monolith
+
+[Profile Detection]
+os_id = monolith
+
+[Storage]
+default_scheme = BTRFS
+btrfs_compression = zstd:1
+
+[Bootloader]
+efi_dir = fedora
+menu_auto_hide = True
+EOF
+
+# Default kickstart: install the very image this ISO was built from. titanoboa
+# squashes only the rootfs (no embedded container copy), so Anaconda pulls the
+# image from the registry at install time. INSTALL_IMAGEREF is passed in from
+# the Containerfile's BASE_IMAGE.
+: "${INSTALL_IMAGEREF:=ghcr.io/mondrethos/monolith-gnome:latest}"
+cat >/usr/share/anaconda/interactive-defaults.ks <<EOF
+ostreecontainer --url=${INSTALL_IMAGEREF} --transport=registry --no-signature-verification
+
+# Point the installed system at the cosign-SIGNED image so future updates are
+# verified (matches the README rebase target). Installed unsigned above only to
+# avoid wiring cosign policy into the installer environment.
+%post --erroronfail --log=/tmp/monolith-origin.log
+sed -i 's|^container-image-reference=.*|container-image-reference=ostree-image-signed:docker://${INSTALL_IMAGEREF}|' \
+    /ostree/deploy/*/deploy/*.origin || true
+%end
+EOF
+
+# Surface the installer in the GNOME dock/overview for the live user, and skip
+# the GNOME welcome tour on the live session.
+mkdir -p /usr/share/glib-2.0/schemas
+cat >/usr/share/glib-2.0/schemas/zz1-monolith-live.gschema.override <<'EOF'
+[org.gnome.shell]
+favorite-apps = ['liveinst.desktop', 'org.gnome.Nautilus.desktop', 'org.gnome.Console.desktop']
+welcome-dialog-last-shown-version='4294967295'
+EOF
+glib-compile-schemas /usr/share/glib-2.0/schemas
+
 # The contract expects shim + grub EFI binaries under /boot/efi/EFI/$VENDOR, but
 # Universal Blue images keep them in /usr/lib/efi. Stage them across, add the
 # CD-boot grub (grub2-efi-x64-cdboot -> gcdx64.efi), and the removable-media
