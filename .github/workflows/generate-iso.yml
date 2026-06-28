@@ -43,6 +43,12 @@ jobs:
       contents: read
       packages: read
     steps:
+      # Needed so installer/force-reboot.tmpl is in the workspace, which the
+      # build action mounts at /github/workspace/ inside the build container.
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
       # ISO builds need a lot of scratch space (image pull + installer build);
       # reclaim the chunky preinstalled toolchains the runner ships with.
       - name: Maximize build space
@@ -68,16 +74,19 @@ jobs:
           version: "44"
           variant: Silverblue
           iso_name: ${{ inputs.image }}-${{ inputs.tag }}.iso
-          # Use native overlayfs for the live overlay. NOTE: this alone did NOT
-          # resolve the end-of-install reboot hang (systemd#17988) in testing --
-          # the reboot fix is still being worked out, and may mean changing ISO
-          # tooling now that Secure Boot no longer constrains that choice.
-          extra_boot_params: rd.live.overlay.overlayfs=1
+          # Force the installer environment to reboot immediately at end of
+          # install so it doesn't hang tearing down the live root. See the
+          # template for the mechanism. (An earlier rd.live.overlay.overlayfs=1
+          # attempt was a no-op: this is an Anaconda installer image, not a
+          # dmsquash-live image, so rd.live.* params don't apply.)
+          additional_templates: /github/workspace/installer/force-reboot.tmpl
 
       - name: Upload ISO
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.image }}-${{ inputs.tag }}-iso
-          path: ${{ steps.build.outputs.iso_path }}
+          # Explicit filename: with the repo checked out, the workspace root is
+          # no longer just the ISO, so don't upload the whole tree.
+          path: ${{ inputs.image }}-${{ inputs.tag }}.iso
           retention-days: 7
           if-no-files-found: error
