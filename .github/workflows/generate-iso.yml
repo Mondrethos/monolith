@@ -10,10 +10,16 @@ name: Generate ISO
 # from an initramfs built with dracut-live, which DOES tear that overlay down
 # cleanly on reboot -- that is the fix.
 #
-# titanoboa's current contract takes only an image reference; everything the
-# live medium needs is baked into the image first. So this workflow builds a
-# transient live-prep layer on top of the published edition image (see
-# iso/Containerfile + iso/build.sh) and feeds that to titanoboa.
+# titanoboa's contract takes only an image reference; everything the live medium
+# needs is baked into the image first. So this workflow builds a transient
+# live-prep layer on top of the published edition image (see iso/Containerfile +
+# iso/build.sh: dracut-live initramfs, GNOME live session, Anaconda WebUI).
+#
+# We do NOT use titanoboa's action to master the ISO -- it emits a UEFI-only ISO
+# that won't boot under legacy BIOS (GNOME Boxes / VirtualBox defaults, old CSM
+# hardware). Instead we run titanoboa's build script (vendored + patched for a
+# hybrid BIOS+UEFI ISO at iso/build_iso.sh) in a Fedora container, exactly as
+# titanoboa's own main.sh invokes it.
 #
 # Secure Boot: the ISO is deliberately SB-agnostic (enrollment is image-side via
 # `ujust enroll-monolith-secure-boot-key`). Note the live environment runs our
@@ -70,25 +76,33 @@ jobs:
             -t localhost/monolith-live:latest \
             -f iso/Containerfile iso/
 
-      # Turn the live image into a bootable live ISO. titanoboa's main.sh cd's
-      # into its own action dir and resolves iso-dest relative to that, so the
-      # final path is unpredictable from here -- read it back from the step's
-      # iso-dest output rather than assuming a location.
-      - name: Build ISO
-        id: build
-        uses: ublue-os/titanoboa@main
-        with:
-          image-ref: localhost/monolith-live:latest
+      # Master the live image into a HYBRID BIOS+UEFI ISO. We don't use the
+      # titanoboa action: it produces a UEFI-only ISO that won't boot under
+      # legacy BIOS (GNOME Boxes / VirtualBox defaults, old hardware). Instead we
+      # run titanoboa's build script the same way its own main.sh does -- a
+      # Fedora container with the live image mounted at /rootfs -- but with our
+      # vendored, BIOS-hybrid-patched copy (iso/build_iso.sh). It writes
+      # /output/<iso-label>.iso (label comes from iso/iso.yaml).
+      - name: Build ISO (hybrid BIOS+UEFI)
+        run: |
+          mkdir -p output
+          sudo podman run --rm \
+            --cap-add sys_admin --security-opt label=disable \
+            -v ${{ github.workspace }}/iso/build_iso.sh:/src/build_iso.sh:ro \
+            --mount type=image,source=localhost/monolith-live:latest,dst=/rootfs \
+            -v ${{ github.workspace }}/output:/output \
+            quay.io/fedora/fedora:latest \
+            bash /src/build_iso.sh
 
-      # Move the ISO to a known dir under a clean name and checksum it.
+      # Rename to a clean per-edition name and checksum it.
       - name: Stage ISO
         id: stage
         env:
-          ISO_SRC: ${{ steps.build.outputs.iso-dest }}
           ISO_NAME: ${{ inputs.image }}-${{ inputs.tag }}.iso
         run: |
-          mkdir -p output
-          mv "$ISO_SRC" "output/$ISO_NAME"
+          src=$(ls output/*.iso | head -1)
+          sudo chown "$(id -u):$(id -g)" "$src"
+          mv "$src" "output/$ISO_NAME"
           (cd output && sha256sum "$ISO_NAME" | tee "$ISO_NAME-CHECKSUM")
           ls -lh output/
 

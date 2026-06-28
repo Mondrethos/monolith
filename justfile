@@ -44,8 +44,10 @@ generate-iso image="ghcr.io/mondrethos/monolith-gnome-nvidia:latest":
         --build-arg BASE_IMAGE={{image}} \
         -t localhost/monolith-live:latest \
         -f iso/Containerfile iso/
-    sudo podman run --rm --security-opt label=disable \
-        -v ./.iso:/output \
-        -v /var/lib/containers/storage:/usr/lib/containers/storage:ro \
+    sudo podman run --rm \
+        --cap-add sys_admin --security-opt label=disable \
+        -v ./iso/build_iso.sh:/src/build_iso.sh:ro \
         --mount type=image,source=localhost/monolith-live:latest,dst=/rootfs \
-        ghcr.io/ublue-os/titanoboa:latest
+        -v ./.iso:/output \
+        quay.io/fedora/fedora:latest \
+        bash /src/build_iso.sh
