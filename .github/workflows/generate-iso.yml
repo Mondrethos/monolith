@@ -1,21 +1,24 @@
 name: Generate ISO
 
-# Manually build an installable ISO for a published Monolith image. The ISO is a
-# dumb installer: it pulls the published image and installs it, nothing more. It
-# deliberately does NOT touch Secure Boot.
+# Manually build an installable *live* ISO for a published Monolith image.
 #
-# Secure Boot is entirely image-side: the kernel and out-of-tree modules are
-# signed at build time with our MOK, the public cert ships inside the image at
-# /etc/pki/akmods/certs/akmods-monolith.der, and the user enrolls it after
-# install with `ujust enroll-monolith-secure-boot-key`. Pre-staging enrollment
-# from the ISO (build-container-installer's secure_boot_key_url/enrollment_password)
-# bought only the convenience of skipping that command, and it is an active
-# footgun -- if the ISO's key ever drifts from the image's key the machine
-# black-screens (cf. ublue/bazzite#688). Keeping the ISO Secure-Boot-agnostic
-# also frees us to pick whatever ISO tool reboots cleanly.
+# We build a live ISO with ublue-os/titanoboa (the same family of tooling
+# Bazzite/Bluefin use) rather than an Anaconda installer ISO via
+# build-container-installer. The Anaconda ISO hung on a grey screen at the
+# end-of-install reboot: its installer environment had no clean way to unmount
+# the live medium and detach the loop device at shutdown. A real live ISO boots
+# from an initramfs built with dracut-live, which DOES tear that overlay down
+# cleanly on reboot -- that is the fix.
 #
-# We call JasonN3/build-container-installer directly rather than via
-# `bluebuild generate-iso` so we can pass options like `web_ui`.
+# titanoboa's current contract takes only an image reference; everything the
+# live medium needs is baked into the image first. So this workflow builds a
+# transient live-prep layer on top of the published edition image (see
+# iso/Containerfile + iso/build.sh) and feeds that to titanoboa.
+#
+# Secure Boot: the ISO is deliberately SB-agnostic (enrollment is image-side via
+# `ujust enroll-monolith-secure-boot-key`). Note the live environment runs our
+# MOK-signed CachyOS kernel, so with Secure Boot ENABLED in firmware shim will
+# not trust it -- boot the ISO with Secure Boot disabled, install, then enroll.
 on:
   workflow_dispatch:
     inputs:
@@ -43,8 +46,8 @@ jobs:
       contents: read
       packages: read
     steps:
-      # ISO builds need a lot of scratch space (image pull + installer build);
-      # reclaim the chunky preinstalled toolchains the runner ships with.
+      # ISO builds need a lot of scratch space (image pull + live layer +
+      # squashfs); reclaim the chunky preinstalled toolchains the runner ships.
       - name: Maximize build space
         run: |
           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android \
@@ -52,27 +55,28 @@ jobs:
           sudo docker image prune --all --force || true
           df -h /
 
-      # Build the installer ISO straight from the published image. image_signed
-      # is left at its default (true): our `signing` module bakes the cosign
-      # policy + public key into the image, which is exactly what this action
-      # reads to verify the pull. version must match our Fedora base (recipe
-      # image-version: 44).
+      # Need the iso/ live-prep layer (Containerfile, build.sh, iso.yaml).
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Build the transient live image on top of the published edition image.
+      # sudo podman so the image lands in root's container storage, which is
+      # where titanoboa's `sudo podman` reads it from by reference.
+      - name: Build live image
+        run: |
+          sudo podman build \
+            --cap-add sys_admin --security-opt label=disable --squash \
+            --build-arg BASE_IMAGE=ghcr.io/mondrethos/${{ inputs.image }}:${{ inputs.tag }} \
+            -t localhost/monolith-live:latest \
+            -f iso/Containerfile iso/
+
+      # Turn the live image into a bootable live ISO.
       - name: Build ISO
         id: build
-        uses: JasonN3/build-container-installer@v1.4.0
+        uses: ublue-os/titanoboa@main
         with:
-          arch: x86_64
-          image_repo: ghcr.io/mondrethos
-          image_name: ${{ inputs.image }}
-          image_tag: ${{ inputs.tag }}
-          version: "44"
-          variant: Silverblue
-          iso_name: ${{ inputs.image }}-${{ inputs.tag }}.iso
-          # Use Anaconda's newer WebUI installer (Fedora's default since F43).
-          # Trying it as an alternate reboot path after the end-of-install hang
-          # persisted with the classic GTK UI: an earlier overlayfs boot param
-          # and a forced-reboot Lorax template both failed to clear it.
-          web_ui: true
+          image-ref: localhost/monolith-live:latest
+          iso-dest: ${{ github.workspace }}/${{ inputs.image }}-${{ inputs.tag }}.iso
 
       - name: Upload ISO
         uses: actions/upload-artifact@v4

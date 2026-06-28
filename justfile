@@ -33,11 +33,19 @@ generate-secureboot-key:
     @echo "Add MOK.priv to GitHub as the KERNEL_SIGNING_SECRET secret, base64-encoded:"
     @echo "  base64 -w0 MOK.priv | gh secret set KERNEL_SIGNING_SECRET"
 
-# Build an installable ISO for a published image. Pass an image ref or use the
-# default NVIDIA edition. (Secure Boot is image-side, not in the ISO.)
+# Build an installable *live* ISO for a published image, into .iso/. Mirrors the
+# Generate ISO workflow: build the transient live-prep layer (iso/) on top of
+# the image, then run titanoboa over it. Needs podman + sudo. (Secure Boot is
+# image-side, not in the ISO; boot the live ISO with Secure Boot disabled.)
 generate-iso image="ghcr.io/mondrethos/monolith-gnome-nvidia:latest":
     mkdir -p .iso
-    bluebuild generate-iso \
-        --iso-name "$(basename {{image}} | tr ':' '-').iso" \
-        --output-dir .iso/ \
-        image {{image}}
+    sudo podman build \
+        --cap-add sys_admin --security-opt label=disable --squash \
+        --build-arg BASE_IMAGE={{image}} \
+        -t localhost/monolith-live:latest \
+        -f iso/Containerfile iso/
+    sudo podman run --rm --security-opt label=disable \
+        -v ./.iso:/output \
+        -v /var/lib/containers/storage:/usr/lib/containers/storage:ro \
+        --mount type=image,source=localhost/monolith-live:latest,dst=/rootfs \
+        ghcr.io/ublue-os/titanoboa:latest
