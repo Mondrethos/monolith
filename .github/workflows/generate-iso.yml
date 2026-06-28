@@ -70,18 +70,32 @@ jobs:
             -t localhost/monolith-live:latest \
             -f iso/Containerfile iso/
 
-      # Turn the live image into a bootable live ISO.
+      # Turn the live image into a bootable live ISO. titanoboa's main.sh cd's
+      # into its own action dir and resolves iso-dest relative to that, so the
+      # final path is unpredictable from here -- read it back from the step's
+      # iso-dest output rather than assuming a location.
       - name: Build ISO
         id: build
         uses: ublue-os/titanoboa@main
         with:
           image-ref: localhost/monolith-live:latest
-          iso-dest: ${{ github.workspace }}/${{ inputs.image }}-${{ inputs.tag }}.iso
+
+      # Move the ISO to a known dir under a clean name and checksum it.
+      - name: Stage ISO
+        id: stage
+        env:
+          ISO_SRC: ${{ steps.build.outputs.iso-dest }}
+          ISO_NAME: ${{ inputs.image }}-${{ inputs.tag }}.iso
+        run: |
+          mkdir -p output
+          mv "$ISO_SRC" "output/$ISO_NAME"
+          (cd output && sha256sum "$ISO_NAME" | tee "$ISO_NAME-CHECKSUM")
+          ls -lh output/
 
       - name: Upload ISO
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.image }}-${{ inputs.tag }}-iso
-          path: ${{ inputs.image }}-${{ inputs.tag }}.iso
+          path: output/
           retention-days: 7
           if-no-files-found: error
