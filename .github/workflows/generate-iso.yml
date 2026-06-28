@@ -8,6 +8,16 @@ name: Generate ISO
 # module signatures baked into the image at build time. The cert here MUST be our
 # own (not the BlueBuild/UBlue default), or the enrolled key would not match what
 # signed our kernel and Secure Boot would reject it.
+#
+# We call JasonN3/build-container-installer directly instead of going through
+# `bluebuild generate-iso`. The bluebuild wrapper only exposes
+# --variant/--secure-boot-url/--enrollment-password and hides `extra_boot_params`,
+# which we need: the wrapper's default ISO hangs on a grey screen at the
+# end-of-install reboot (systemd#17988 -- the live medium can't be unmounted at
+# shutdown, so the reboot stalls until a hard power-cycle; it reproduces in VMs
+# because it is inherent to the live image, not the firmware). Driving the action
+# directly lets us pass `rd.live.overlay.overlayfs=1` to fix that while keeping
+# the same Secure Boot enrollment via the action's native inputs.
 on:
   workflow_dispatch:
     inputs:
@@ -29,7 +39,7 @@ concurrency:
 
 env:
   # Our committed public cert + chosen enrollment password (see openssl.cnf and
-  # the justfile). Passed explicitly to generate-iso below.
+  # the justfile). Passed to the installer below to pre-stage MOK enrollment.
   SECURE_BOOT_URL: https://github.com/Mondrethos/monolith/raw/main/files/system/etc/pki/akmods/certs/akmods-monolith.der
   ENROLLMENT_PASSWORD: monolith
 
@@ -50,31 +60,35 @@ jobs:
           sudo docker image prune --all --force || true
           df -h /
 
-      - name: Install BlueBuild CLI
-        run: bash <(curl -sL https://raw.githubusercontent.com/blue-build/cli/main/install.sh)
-
-      # generate-iso runs as root (privileged container), so log podman in as root
-      # in case the image package is private. Harmless if it is public.
-      - name: Log in to GHCR
-        run: echo "${{ github.token }}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
-
-      - name: Generate ISO
-        run: |
-          mkdir -p "${{ github.workspace }}/iso-output"
-          sudo bluebuild generate-iso \
-            --variant Silverblue \
-            --secure-boot-url "${SECURE_BOOT_URL}" \
-            --enrollment-password "${ENROLLMENT_PASSWORD}" \
-            --iso-name "${{ inputs.image }}-${{ inputs.tag }}.iso" \
-            --output-dir "${{ github.workspace }}/iso-output" \
-            image "ghcr.io/mondrethos/${{ inputs.image }}:${{ inputs.tag }}"
-          sudo chown -R "$(id -u):$(id -g)" "${{ github.workspace }}/iso-output"
-          ls -lh "${{ github.workspace }}/iso-output"
+      # Build the installer ISO straight from the published image. image_signed
+      # is left at its default (true): our `signing` module bakes the cosign
+      # policy + public key into the image, which is exactly what this action
+      # reads to verify the pull. version must match our Fedora base (recipe
+      # image-version: 44).
+      - name: Build ISO
+        id: build
+        uses: JasonN3/build-container-installer@v1.4.0
+        with:
+          arch: x86_64
+          image_repo: ghcr.io/mondrethos
+          image_name: ${{ inputs.image }}
+          image_tag: ${{ inputs.tag }}
+          version: "44"
+          variant: Silverblue
+          iso_name: ${{ inputs.image }}-${{ inputs.tag }}.iso
+          secure_boot_key_url: ${{ env.SECURE_BOOT_URL }}
+          enrollment_password: ${{ env.ENROLLMENT_PASSWORD }}
+          # Fix for the end-of-install reboot hang (systemd#17988): native
+          # overlayfs unmounts cleanly at shutdown where the legacy dm-based live
+          # overlay leaves the medium busy and stalls the reboot. No RAM cost
+          # (rd.live.ram would need ~16 GB for our ~7 GB image, so it is not an
+          # option here).
+          extra_boot_params: rd.live.overlay.overlayfs=1
 
       - name: Upload ISO
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.image }}-${{ inputs.tag }}-iso
-          path: iso-output/*
+          path: ${{ steps.build.outputs.iso_path }}
           retention-days: 7
           if-no-files-found: error
