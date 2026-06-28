@@ -61,6 +61,8 @@ modules:
         - gnome-software
         # Replaced by the Resources flatpak (net.nokyan.Resources).
         - gnome-system-monitor
+        # btop is the maintained replacement we ship instead.
+        - htop
         # Use distrobox exclusively; toolbox is redundant and its label-based
         # detection collides with distrobox-managed boxes (see topgrade toolbx).
         - toolbox
