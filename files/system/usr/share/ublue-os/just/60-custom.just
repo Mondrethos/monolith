@@ -4,9 +4,15 @@
 # MokManager screen appears on first boot). This command is only for systems
 # that rebased onto a Monolith image instead, where there was no installer to
 # stage the enrollment.
+#
+# Deliberately NOT named "enroll-secure-boot-key": the ublue base ships that
+# recipe in 00-default.just, which is imported before this file. Same-named
+# recipes can't override an earlier sibling import, so a collision would just
+# be shadowed by the upstream version (akmods-ublue.der / "universalblue").
+# A distinct name guarantees this recipe is the one that runs.
 
 # Enroll the Monolith Secure Boot key - only needed if you rebased instead of installing from the ISO. Enter the password "monolith" if prompted.
-enroll-secure-boot-key:
+enroll-monolith-secure-boot-key:
     #!/usr/bin/bash
     set -euo pipefail
     ENROLLMENT_PASSWORD="monolith"
