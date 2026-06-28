@@ -59,6 +59,8 @@ modules:
         - firefox
         - firefox-langpacks
         - gnome-software
+        # Replaced by the Resources flatpak (net.nokyan.Resources).
+        - gnome-system-monitor
         # Use distrobox exclusively; toolbox is redundant and its label-based
         # detection collides with distrobox-managed boxes (see topgrade toolbx).
         - toolbox
@@ -227,6 +229,7 @@ modules:
           - io.github.Faugus.faugus-launcher
           - com.system76.Popsicle
           - com.github.tchx84.Flatseal
+          - net.nokyan.Resources
           - org.mozilla.Thunderbird
           - com.discordapp.Discord
           - com.yubico.yubioath
