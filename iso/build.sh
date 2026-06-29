@@ -48,7 +48,7 @@ systemctl enable livesys.service livesys-late.service
 # without re-adding it here the install button launches liveinst but no UI ever
 # appears. It only lives in the live medium; the installed system (pulled fresh
 # from the registry) stays firefox-free.
-dnf install -qy anaconda-live anaconda-webui firefox \
+dnf install -qy anaconda-live anaconda-webui firefox rsync \
     libblockdev-btrfs libblockdev-lvm libblockdev-dm
 mkdir -p /var/lib/rpm-state   # anaconda-webui expects this to exist
 
@@ -85,17 +85,54 @@ ostreecontainer --url=${INSTALL_IMAGEREF} --transport=registry --no-signature-ve
 sed -i 's|^container-image-reference=.*|container-image-reference=ostree-image-signed:docker://${INSTALL_IMAGEREF}|' \
     /ostree/deploy/*/deploy/*.origin || true
 %end
+
+# Copy the flatpaks pre-staged into the live medium onto the target, so a fresh
+# install has them immediately instead of system-flatpak-setup re-downloading
+# everything (slowly) on first boot. Best-effort: if the deploy path differs the
+# first-boot service still installs them, so this is not --erroronfail. Shell
+# vars are escaped (\$) to stay literal in the kickstart.
+%post --nochroot --log=/tmp/monolith-flatpak-copy.log
+set -x
+for base in /mnt/sysroot /mnt/sysimage; do
+    [ -d "\$base/ostree/deploy" ] || continue
+    tgt=\$(ls -d "\$base"/ostree/deploy/*/deploy/*.0/var/lib 2>/dev/null | head -1)
+    [ -n "\$tgt" ] || continue
+    rsync -aAXUH --filter='-x security.selinux' /var/lib/flatpak "\$tgt/" && break
+done
+%end
 EOF
 
-# Surface the installer in the GNOME dock/overview for the live user, and skip
-# the GNOME welcome tour on the live session.
+# Do NOT override the dock favorites: let the live session inherit Monolith's
+# own favorites from the image so its dock matches the installed system exactly.
+# (Anaconda's "Install to Hard Drive" is still reachable from Show Apps.) The
+# only live-session tweak is skipping the one-time GNOME welcome tour.
 mkdir -p /usr/share/glib-2.0/schemas
-cat >/usr/share/glib-2.0/schemas/zz1-monolith-live.gschema.override <<'EOF'
+cat >/usr/share/glib-2.0/schemas/zzzz-monolith-live.gschema.override <<'EOF'
 [org.gnome.shell]
-favorite-apps = ['liveinst.desktop', 'org.gnome.Nautilus.desktop', 'org.gnome.Console.desktop']
 welcome-dialog-last-shown-version='4294967295'
 EOF
 glib-compile-schemas /usr/share/glib-2.0/schemas
+
+# --- Materialize /opt payloads so apps like Brave launch in the live session ---
+# Packages such as Brave install their real binaries under /usr/lib/opt and rely
+# on a boot-time tmpfiles rule to symlink /opt/<pkg> (which is itself /var/opt/<pkg>)
+# to them. The live squashfs never ran that rule, so /usr/bin/brave-origin-nightly
+# is a dangling symlink and the browser won't start ("installed but won't
+# launch"). Create the symlinks now so they're baked into the squashfs.
+if [ -d /usr/lib/opt ]; then
+    mkdir -p /var/opt
+    for d in /usr/lib/opt/*/; do
+        ln -sfn "$d" "/var/opt/$(basename "$d")"
+    done
+fi
+
+# --- Pre-stage the system flatpaks ---
+# Run the image's own bluebuild installer to put Monolith's system flatpaks into
+# the live medium (so the list never drifts from the recipe). This makes the live
+# session show the full app set, and the Anaconda kickstart above copies
+# /var/lib/flatpak onto the target so a fresh install has them immediately rather
+# than slowly re-downloading on first boot. Needs network + rw /proc/sys (above).
+/usr/libexec/bluebuild/default-flatpaks/system-flatpak-setup
 
 # The contract expects shim + grub EFI binaries under /boot/efi/EFI/$VENDOR, but
 # Universal Blue images keep them in /usr/lib/efi. Stage them across, add the
