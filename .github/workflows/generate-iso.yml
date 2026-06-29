@@ -1,13 +1,30 @@
 name: Generate ISO
 
-# Manually build an installable ISO for a published Monolith image. The ISO is
-# only packaging + an Anaconda installer; it carries NO signing key. Its only
-# Secure Boot role is to pre-stage MOK enrollment: it embeds our PUBLIC cert and
-# the enrollment password (below) so the MokManager screen appears on first boot
-# and the user just types the password. The trust itself comes from the kernel +
-# module signatures baked into the image at build time. The cert here MUST be our
-# own (not the BlueBuild/UBlue default), or the enrolled key would not match what
-# signed our kernel and Secure Boot would reject it.
+# Manually build an installable *live* ISO for a published Monolith image.
+#
+# We build a live ISO with ublue-os/titanoboa (the same family of tooling
+# Bazzite/Bluefin use) rather than an Anaconda installer ISO via
+# build-container-installer. The Anaconda ISO hung on a grey screen at the
+# end-of-install reboot: its installer environment had no clean way to unmount
+# the live medium and detach the loop device at shutdown. A real live ISO boots
+# from an initramfs built with dracut-live, which DOES tear that overlay down
+# cleanly on reboot -- that is the fix.
+#
+# titanoboa's contract takes only an image reference; everything the live medium
+# needs is baked into the image first. So this workflow builds a transient
+# live-prep layer on top of the published edition image (see iso/Containerfile +
+# iso/build.sh: dracut-live initramfs, GNOME live session, Anaconda WebUI).
+#
+# We do NOT use titanoboa's action to master the ISO -- it emits a UEFI-only ISO
+# that won't boot under legacy BIOS (GNOME Boxes / VirtualBox defaults, old CSM
+# hardware). Instead we run titanoboa's build script (vendored + patched for a
+# hybrid BIOS+UEFI ISO at iso/build_iso.sh) in a Fedora container, exactly as
+# titanoboa's own main.sh invokes it.
+#
+# Secure Boot: the ISO is deliberately SB-agnostic (enrollment is image-side via
+# `ujust enroll-monolith-secure-boot-key`). Note the live environment runs our
+# MOK-signed CachyOS kernel, so with Secure Boot ENABLED in firmware shim will
+# not trust it -- boot the ISO with Secure Boot disabled, install, then enroll.
 on:
   workflow_dispatch:
     inputs:
@@ -27,12 +44,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ inputs.image }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  # Our committed public cert + chosen enrollment password (see openssl.cnf and
-  # the justfile). Passed explicitly to generate-iso below.
-  SECURE_BOOT_URL: https://github.com/Mondrethos/monolith/raw/main/files/system/etc/pki/akmods/certs/akmods-monolith.der
-  ENROLLMENT_PASSWORD: monolith
-
 jobs:
   generate-iso:
     name: Generate ISO (${{ inputs.image }}:${{ inputs.tag }})
@@ -41,8 +52,8 @@ jobs:
       contents: read
       packages: read
     steps:
-      # ISO builds need a lot of scratch space (image pull + installer build);
-      # reclaim the chunky preinstalled toolchains the runner ships with.
+      # ISO builds need a lot of scratch space (image pull + live layer +
+      # squashfs); reclaim the chunky preinstalled toolchains the runner ships.
       - name: Maximize build space
         run: |
           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android \
@@ -50,31 +61,55 @@ jobs:
           sudo docker image prune --all --force || true
           df -h /
 
-      - name: Install BlueBuild CLI
-        run: bash <(curl -sL https://raw.githubusercontent.com/blue-build/cli/main/install.sh)
+      # Need the iso/ live-prep layer (Containerfile, build.sh, iso.yaml).
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      # generate-iso runs as root (privileged container), so log podman in as root
-      # in case the image package is private. Harmless if it is public.
-      - name: Log in to GHCR
-        run: echo "${{ github.token }}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
-
-      - name: Generate ISO
+      # Build the transient live image on top of the published edition image.
+      # sudo podman so the image lands in root's container storage, which is
+      # where titanoboa's `sudo podman` reads it from by reference.
+      - name: Build live image
         run: |
-          mkdir -p "${{ github.workspace }}/iso-output"
-          sudo bluebuild generate-iso \
-            --variant Silverblue \
-            --secure-boot-url "${SECURE_BOOT_URL}" \
-            --enrollment-password "${ENROLLMENT_PASSWORD}" \
-            --iso-name "${{ inputs.image }}-${{ inputs.tag }}.iso" \
-            --output-dir "${{ github.workspace }}/iso-output" \
-            image "ghcr.io/mondrethos/${{ inputs.image }}:${{ inputs.tag }}"
-          sudo chown -R "$(id -u):$(id -g)" "${{ github.workspace }}/iso-output"
-          ls -lh "${{ github.workspace }}/iso-output"
+          sudo podman build \
+            --cap-add sys_admin --security-opt label=disable --squash \
+            --build-arg BASE_IMAGE=ghcr.io/mondrethos/${{ inputs.image }}:${{ inputs.tag }} \
+            -t localhost/monolith-live:latest \
+            -f iso/Containerfile iso/
+
+      # Master the live image into a HYBRID BIOS+UEFI ISO. We don't use the
+      # titanoboa action: it produces a UEFI-only ISO that won't boot under
+      # legacy BIOS (GNOME Boxes / VirtualBox defaults, old hardware). Instead we
+      # run titanoboa's build script the same way its own main.sh does -- a
+      # Fedora container with the live image mounted at /rootfs -- but with our
+      # vendored, BIOS-hybrid-patched copy (iso/build_iso.sh). It writes
+      # /output/<iso-label>.iso (label comes from iso/iso.yaml).
+      - name: Build ISO (hybrid BIOS+UEFI)
+        run: |
+          mkdir -p output
+          sudo podman run --rm \
+            --cap-add sys_admin --security-opt label=disable \
+            -v ${{ github.workspace }}/iso/build_iso.sh:/src/build_iso.sh:ro \
+            --mount type=image,source=localhost/monolith-live:latest,dst=/rootfs \
+            -v ${{ github.workspace }}/output:/output \
+            quay.io/fedora/fedora:latest \
+            bash /src/build_iso.sh
+
+      # Rename to a clean per-edition name and checksum it.
+      - name: Stage ISO
+        id: stage
+        env:
+          ISO_NAME: ${{ inputs.image }}-${{ inputs.tag }}.iso
+        run: |
+          src=$(ls output/*.iso | head -1)
+          sudo chown "$(id -u):$(id -g)" "$src"
+          mv "$src" "output/$ISO_NAME"
+          (cd output && sha256sum "$ISO_NAME" | tee "$ISO_NAME-CHECKSUM")
+          ls -lh output/
 
       - name: Upload ISO
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.image }}-${{ inputs.tag }}-iso
-          path: iso-output/*
+          path: output/
           retention-days: 7
           if-no-files-found: error

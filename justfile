@@ -2,18 +2,14 @@
 #
 # Secure Boot: the kernel and the out-of-tree modules are signed at build time
 # with a self-managed MOK key (see openssl.cnf). The public cert ships in the
-# image and is enrolled via the ISO installer (BB_GENISO_* below), so users get
-# the MokManager screen on first boot and just type the enrollment password.
+# image; users enroll it after install with `ujust enroll-monolith-secure-boot-key`.
+# The ISO itself is Secure-Boot-agnostic (it just installs the signed image).
 
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
 export BB_REGISTRY := "ghcr.io"
 export BB_REGISTRY_NAMESPACE := "mondrethos"
 
-# Baked into generated ISOs so first-boot MOK enrollment is automatic: the
-# installer pre-stages the cert and MokManager prompts for this password.
-export BB_GENISO_SECURE_BOOT_URL := "https://github.com/Mondrethos/monolith/raw/main/files/system/etc/pki/akmods/certs/akmods-monolith.der"
-export BB_GENISO_ENROLLMENT_PASSWORD := "monolith"
 export BB_GENISO_VARIANT := "Silverblue"
 
 _default:
@@ -37,12 +33,21 @@ generate-secureboot-key:
     @echo "Add MOK.priv to GitHub as the KERNEL_SIGNING_SECRET secret, base64-encoded:"
     @echo "  base64 -w0 MOK.priv | gh secret set KERNEL_SIGNING_SECRET"
 
-# Build an installable ISO for a published image, with Secure Boot key
-# pre-enrollment baked in (BB_GENISO_* above). Pass an image ref or use the
-# default NVIDIA edition.
+# Build an installable *live* ISO for a published image, into .iso/. Mirrors the
+# Generate ISO workflow: build the transient live-prep layer (iso/) on top of
+# the image, then run titanoboa over it. Needs podman + sudo. (Secure Boot is
+# image-side, not in the ISO; boot the live ISO with Secure Boot disabled.)
 generate-iso image="ghcr.io/mondrethos/monolith-gnome-nvidia:latest":
     mkdir -p .iso
-    bluebuild generate-iso \
-        --iso-name "$(basename {{image}} | tr ':' '-').iso" \
-        --output-dir .iso/ \
-        image {{image}}
+    sudo podman build \
+        --cap-add sys_admin --security-opt label=disable --squash \
+        --build-arg BASE_IMAGE={{image}} \
+        -t localhost/monolith-live:latest \
+        -f iso/Containerfile iso/
+    sudo podman run --rm \
+        --cap-add sys_admin --security-opt label=disable \
+        -v ./iso/build_iso.sh:/src/build_iso.sh:ro \
+        --mount type=image,source=localhost/monolith-live:latest,dst=/rootfs \
+        -v ./.iso:/output \
+        quay.io/fedora/fedora:latest \
+        bash /src/build_iso.sh

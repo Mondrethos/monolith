@@ -1,0 +1,19 @@
+# Transient live-ISO prep layer. The Generate ISO workflow builds this ON TOP of
+# a published Monolith edition image, then hands the result to titanoboa to
+# produce the live installer ISO. It is never pushed to a registry and is not
+# the image users install -- that is the BASE_IMAGE, which titanoboa lays down
+# to disk unchanged. All this layer adds is what the live medium needs to boot
+# and to shut down cleanly (see build.sh).
+#
+# Build (mirrors the workflow / titanoboa's local instructions):
+#   sudo podman build --cap-add sys_admin --security-opt label=disable --squash \
+#     --build-arg BASE_IMAGE=ghcr.io/mondrethos/monolith-gnome:latest \
+#     -t localhost/monolith-live:latest -f iso/Containerfile iso/
+ARG BASE_IMAGE=ghcr.io/mondrethos/monolith-gnome:latest
+FROM ${BASE_IMAGE}
+
+# Re-declare after FROM so it is visible to RUN; build.sh uses it as the image
+# the Anaconda kickstart installs.
+ARG BASE_IMAGE
+COPY iso.yaml build.sh /src/
+RUN INSTALL_IMAGEREF="${BASE_IMAGE}" /src/build.sh && rm -rf /src

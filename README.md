@@ -42,14 +42,15 @@ The `latest` tag will automatically point to the latest build. That build will s
 
 ## Secure Boot
 
-Every edition is Secure Boot capable. Because Monolith swaps in the CachyOS kernel (which Fedora doesn't sign) and, on the NVIDIA edition, builds the driver from source, the kernel and those out-of-tree modules are signed at build time with Monolith's own key. To boot with Secure Boot **enabled**, you enroll that key once as a Machine Owner Key (MOK):
+Every edition is Secure Boot capable. Because Monolith swaps in the CachyOS kernel (which Fedora doesn't sign) and, on the NVIDIA edition, builds the driver from source, the kernel and those out-of-tree modules are signed at build time with Monolith's own key. The public cert ships inside the image, so to boot with Secure Boot **enabled** you just enroll that key once as a Machine Owner Key (MOK).
 
-- **Installing from a Monolith ISO** — enrollment is automatic. On the first boot after installation the blue **MokManager** screen appears: choose **Enroll MOK → Continue**, then enter the password `monolith`. That's it; Secure Boot works from then on.
-- **If you rebased** onto a Monolith image instead of installing from the ISO, enroll the key once:
-  ```bash
-  ujust enroll-monolith-secure-boot-key
-  ```
-  Reboot, then complete enrollment at the MokManager screen with the same password, `monolith`.
+The steps are the same whether you installed from a Monolith ISO or rebased onto a Monolith image (the ISO itself is Secure-Boot-agnostic — it just installs the signed image). After install, run:
+
+```bash
+ujust enroll-monolith-secure-boot-key
+```
+
+Reboot, and the blue **MokManager** screen appears: choose **Enroll MOK → Continue**, then enter the password `monolith`. That's it; Secure Boot works from then on.
 
 If you don't use Secure Boot (it's disabled in your firmware), there's nothing to do. The enrollment password is not a secret — it's only typed once at the MokManager screen to confirm a human at the console is approving the key.
 
