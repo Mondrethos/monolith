@@ -195,6 +195,7 @@ modules:
       - Dash to Panel
       - Gnome 4x, 5x UI Improvements
       - Vicinae
+      - No overview at start-up
 
   - type: gschema-overrides
     include:
