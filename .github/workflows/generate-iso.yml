@@ -63,7 +63,7 @@ jobs:
 
       # Need the iso/ live-prep layer (Containerfile, build.sh, iso.yaml).
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # Build the transient live image on top of the published edition image.
       # sudo podman so the image lands in root's container storage, which is
