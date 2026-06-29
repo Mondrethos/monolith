@@ -42,7 +42,13 @@ systemctl enable livesys.service livesys-late.service
 # Mirrors Bazzite/Bluefin's titanoboa installer hook, trimmed to Monolith: no
 # Secure Boot kickstart (enrollment stays image-side via ujust, see the workflow
 # header) and no Bazzite-specific branding/tooling.
-dnf install -qy anaconda-live anaconda-webui \
+# firefox is required even though anaconda-webui doesn't hard-depend on it:
+# Anaconda's WebUI renders through /usr/libexec/anaconda/webui-desktop, which
+# launches firefox + cockpit-ws. Monolith removes firefox from the image, so
+# without re-adding it here the install button launches liveinst but no UI ever
+# appears. It only lives in the live medium; the installed system (pulled fresh
+# from the registry) stays firefox-free.
+dnf install -qy anaconda-live anaconda-webui firefox \
     libblockdev-btrfs libblockdev-lvm libblockdev-dm
 mkdir -p /var/lib/rpm-state   # anaconda-webui expects this to exist
 
