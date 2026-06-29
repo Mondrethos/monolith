@@ -44,7 +44,7 @@ The `latest` tag will automatically point to the latest build. That build will s
 
 Every edition is Secure Boot capable. Because Monolith swaps in the CachyOS kernel (which Fedora doesn't sign) and, on the NVIDIA edition, builds the driver from source, the kernel and those out-of-tree modules are signed at build time with Monolith's own key. The public cert ships inside the image, so to boot with Secure Boot **enabled** you just enroll that key once as a Machine Owner Key (MOK).
 
-The steps are the same whether you installed from a Monolith ISO or rebased onto a Monolith image. After install, run:
+The steps are the same whether you installed from a Monolith ISO or rebased onto a Monolith image (the ISO itself is Secure-Boot-agnostic — it just installs the signed image). After install, run:
 
 ```bash
 ujust enroll-monolith-secure-boot-key
