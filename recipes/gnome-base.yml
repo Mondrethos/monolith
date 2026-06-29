@@ -281,6 +281,25 @@ modules:
         # units.
         systemctl --global enable vicinae.service
       - |
+        # Install tea, the Gitea/Forgejo CLI. It's a single static Go binary not
+        # carried by Fedora or Terra. Resolve the latest release from the Gitea
+        # API on every build so it actually tracks upstream (like the dnf and git
+        # parts of this image), and verify the download against the checksum that
+        # release publishes before baking it into /usr/bin. tea speaks the Gitea
+        # API, which Forgejo implements, so the same binary drives Forgejo.
+        set -euxo pipefail
+        tea_version="$(curl -fsSL https://gitea.com/api/v1/repos/gitea/tea/releases/latest \
+          | grep -oE '"tag_name":"v[^"]*"' | head -1 | sed -E 's/.*"v([^"]*)".*/\1/')"
+        test -n "$tea_version"
+        fn="tea-${tea_version}-linux-amd64"
+        url="https://dl.gitea.com/tea/${tea_version}/${fn}"
+        tmp="$(mktemp -d)"
+        curl -fsSL -o "$tmp/$fn" "$url"
+        curl -fsSL -o "$tmp/$fn.sha256" "$url.sha256"
+        ( cd "$tmp" && sha256sum -c "$fn.sha256" )
+        install -Dm0755 "$tmp/$fn" /usr/bin/tea
+        rm -rf "$tmp"
+      - |
         # Install Bazaar Companion GNOME Shell extension system-wide.
         set -euxo pipefail
         uuid="bazaar-integration@kolunmi.github.io"
