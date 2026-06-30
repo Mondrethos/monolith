@@ -73,9 +73,13 @@ jobs:
           # api.github.com with `Authorization: Bearer ${{ github.token }}` — and
           # github.com 401s on a Forgejo token. A set cli_version skips that lookup.
           cli_version: v0.9.35
-          # Push to the self-hosted Forgejo registry under the monolith-os org,
-          # authenticating with the Forgejo Actions token.
-          registry: forge.waywardinn.com
+          # Push target only. registry.waywardinn.com is a direct (grey-cloud) DNS
+          # record to the origin, so it skips the Cloudflare tunnel's 100MB body
+          # limit that rejects large layer pushes. Pulls, the cosign policy
+          # (BB_REGISTRY), the README, and the ISO stay on forge.waywardinn.com.
+          # Forgejo stores the image as monolith-os/<edition> no matter which host
+          # pushed it, so tunnel pulls resolve the same package.
+          registry: registry.waywardinn.com
           registry_namespace: monolith-os
           # The auto Actions token can't write packages to the monolith-os org
           # (401 reqPackageAccess); use a PAT with write:package owned by a user
