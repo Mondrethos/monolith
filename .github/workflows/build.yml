@@ -76,7 +76,9 @@ jobs:
           maximize_build_space: false
 
   generate-release:
-    name: Generate Release
+    # Caller of the reusable generate_release.yml; named distinctly from the
+    # callee ("Generate Release") so Forgejo's two rows don't read identically.
+    name: Release
     needs: bluebuild
     # Only on main: PRs don't publish images to diff, and pushes to feature
     # branches must not create releases or re-point the release tag.
