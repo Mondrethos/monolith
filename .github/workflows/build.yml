@@ -54,9 +54,13 @@ jobs:
       # the build is fully handled by the reusable github action
       - name: Build Custom Image
         # Full github.com URL: this Forgejo resolves bare `uses:` from
-        # data.forgejo.org, which doesn't mirror blue-build's action. (Switch to
-        # a bare ref once DEFAULT_ACTIONS_URL=github, or move to the CLI.)
-        uses: https://github.com/blue-build/github-action@v1.11
+        # data.forgejo.org, which doesn't mirror blue-build's action. Switch to a
+        # bare ref once DEFAULT_ACTIONS_URL=github, or move to the CLI.
+        # Pin the lightweight v1.11.1 tag, NOT v1.11: v1.11 is an annotated tag,
+        # and this Forgejo runner mishandles annotated tags (checks out the tag's
+        # commit but compares it to the tag-object SHA, then fails). v1.11.1 is
+        # the same commit with no tag object.
+        uses: https://github.com/blue-build/github-action@v1.11.1
         with:
           recipe: ${{ matrix.recipe }}
           cosign_private_key: ${{ secrets.SIGNING_SECRET }}
