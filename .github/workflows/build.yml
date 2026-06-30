@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   bluebuild:
-    name: Build Custom Image (${{ matrix.recipe }})
+    name: Build ${{ matrix.label }}
     runs-on: ubuntu-latest
     # The signing module derives its baked-in cosign policy from BB_REGISTRY; the
     # action otherwise defaults the host to ghcr.io. Pin it to the real push
@@ -31,10 +31,13 @@ jobs:
     strategy:
       fail-fast: false # stop GH from cancelling all matrix builds if one fails
       matrix:
-        recipe:
-          # !! Add your recipes here
-          - recipe-gnome.yml
-          - recipe-gnome-nvidia.yml
+        # !! Add your editions here. label is the readable name shown in the
+        # Actions list; recipe is the file under recipes/.
+        include:
+          - label: GNOME
+            recipe: recipe-gnome.yml
+          - label: GNOME NVIDIA
+            recipe: recipe-gnome-nvidia.yml
     steps:
       # Check out ourselves first so the kernel signing key is in the workspace
       # before the build action runs (it skips its own checkout below).
