@@ -19,6 +19,12 @@ jobs:
   bluebuild:
     name: Build Custom Image (${{ matrix.recipe }})
     runs-on: ubuntu-latest
+    # The signing module derives its baked-in cosign policy from BB_REGISTRY; the
+    # action otherwise defaults the host to ghcr.io. Pin it to the real push
+    # target so the policy matches forge.waywardinn.com/monolith-os.
+    env:
+      BB_REGISTRY: forge.waywardinn.com
+      BB_REGISTRY_NAMESPACE: monolith-os
     permissions:
       contents: read
       packages: write
@@ -71,8 +77,11 @@ jobs:
           # authenticating with the Forgejo Actions token.
           registry: forge.waywardinn.com
           registry_namespace: monolith-os
-          registry_username: ${{ github.actor }}
-          registry_token: ${{ secrets.GITHUB_TOKEN }}
+          # The auto Actions token can't write packages to the monolith-os org
+          # (401 reqPackageAccess); use a PAT with write:package owned by a user
+          # with org access.
+          registry_username: TheDarkWizard
+          registry_token: ${{ secrets.REGISTRY_TOKEN }}
           pr_event_number: ${{ github.event.number }}
           # We checked out above (to stage MOK.priv); don't let the action wipe it.
           skip_checkout: true
