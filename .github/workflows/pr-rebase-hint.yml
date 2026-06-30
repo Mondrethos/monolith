@@ -23,12 +23,10 @@ jobs:
 
       - name: Comment the PR test-build rebase command
         env:
-          GH_TOKEN: ${{ github.token }}
+          FORGEJO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          OWNER: ${{ github.repository_owner }}
         run: |
           set -euo pipefail
-          owner="${OWNER,,}"
 
           # Enumerate every published edition from its recipe (recipes/recipe-*.yml
           # is the single source of truth for the image name + Fedora version), so
@@ -59,7 +57,7 @@ jobs:
             [ -n "$name" ] && [ -n "$version" ] \
               || { echo "name/image-version not found in $recipe" >&2; exit 1; }
             found=1
-            image="ghcr.io/${owner}/${name}"
+            image="forge.waywardinn.com/monolith-os/${name}"
             tag="pr-${PR_NUMBER}-${version}"
             {
               echo "**\`${name}\`**"
@@ -79,4 +77,10 @@ jobs:
             echo "_The test tags stop updating once this PR is merged or closed._"
           } >> body.md
 
-          gh pr comment "$PR_NUMBER" --body-file body.md
+          # PRs are issues in Forgejo's API; post the comment through the
+          # Gitea-compatible issue-comments endpoint (gh CLI isn't available here).
+          curl -fsS -X POST \
+            -H "Authorization: token $FORGEJO_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data "$(jq -n --rawfile b body.md '{body:$b}')" \
+            "${{ github.server_url }}/api/v1/repos/${{ github.repository }}/issues/${PR_NUMBER}/comments"

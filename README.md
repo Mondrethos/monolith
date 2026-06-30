@@ -2,9 +2,9 @@
   <img src="files/system/usr/share/plymouth/themes/spinner/watermark.png#gh-dark-mode-only" alt="Monolith" width="200"/>
 </div>
 
-[![Build](https://github.com/Mondrethos/monolith/actions/workflows/build.yml/badge.svg)](https://github.com/Mondrethos/monolith/actions/workflows/build.yml)
+[![Build](https://forge.waywardinn.com/monolith-os/monolith/actions/workflows/build.yml/badge.svg)](https://forge.waywardinn.com/monolith-os/monolith/actions?workflow=build.yml)
 
-Monolith is my personal Fedora Atomic desktop image, built with BlueBuild on top of Universal Blue’s Silverblue Main image. It keeps the base close to Fedora Silverblue while adding my preferred desktop defaults, GNOME extensions, system Flatpaks, gaming tools, Tailscale, Brave Origin, and layered Steam support. Every edition runs the CachyOS kernel. Images are rebuilt automatically and published to GHCR for rebasing or ISO generation.
+Monolith is my personal Fedora Atomic desktop image, built with BlueBuild on top of Universal Blue’s Silverblue Main image. It keeps the base close to Fedora Silverblue while adding my preferred desktop defaults, GNOME extensions, system Flatpaks, gaming tools, Tailscale, Brave Origin, and layered Steam support. Every edition runs the CachyOS kernel. Images are rebuilt automatically and published to my Forgejo registry for rebasing or ISO generation.
 
 ## Pick your edition
 
@@ -12,10 +12,10 @@ Monolith comes in a few flavors — choose the one that matches your hardware:
 
 | Edition | Image | Use this if… |
 | --- | --- | --- |
-| **GNOME** | `monolith-gnome` | You have AMD or Intel graphics (the default for most machines). |
-| **GNOME — NVIDIA** | `monolith-gnome-nvidia` | You have an NVIDIA GPU. Adds NVIDIA’s open kernel module, built against the CachyOS kernel. |
+| **GNOME** | `gnome` | You have AMD or Intel graphics (the default for most machines). |
+| **GNOME — NVIDIA** | `gnome-nvidia` | You have an NVIDIA GPU. Adds NVIDIA’s open kernel module, built against the CachyOS kernel. |
 
-All images live under `ghcr.io/mondrethos/`. In the commands below, replace `<edition>` with the image name from the table (e.g. `monolith-gnome` or `monolith-gnome-nvidia`).
+All images live under `forge.waywardinn.com/monolith-os/`. In the commands below, replace `<edition>` with the image name from the table (e.g. `gnome` or `gnome-nvidia`).
 
 ## Rebasing
 
@@ -23,7 +23,7 @@ To rebase an existing atomic Fedora installation to the latest build of your cho
 
 - First rebase to the unsigned image, to get the proper signing keys and policies installed:
   ```
-  rpm-ostree rebase ostree-unverified-registry:ghcr.io/mondrethos/<edition>:latest
+  rpm-ostree rebase ostree-unverified-registry:forge.waywardinn.com/monolith-os/<edition>:latest
   ```
 - Reboot to complete the rebase:
   ```
@@ -31,7 +31,7 @@ To rebase an existing atomic Fedora installation to the latest build of your cho
   ```
 - Then rebase to the signed image, like so:
   ```
-  rpm-ostree rebase ostree-image-signed:docker://ghcr.io/mondrethos/<edition>:latest
+  rpm-ostree rebase ostree-image-signed:docker://forge.waywardinn.com/monolith-os/<edition>:latest
   ```
 - Reboot again to complete the installation
   ```
@@ -59,5 +59,5 @@ If you don't use Secure Boot (it's disabled in your firmware), there's nothing t
 These images are signed with [Sigstore](https://www.sigstore.dev/)'s [cosign](https://github.com/sigstore/cosign). You can verify the signature by downloading the `cosign.pub` file from this repo and running the following command (substituting your edition):
 
 ```bash
-cosign verify --key cosign.pub ghcr.io/mondrethos/<edition>
+cosign verify --key cosign.pub forge.waywardinn.com/monolith-os/<edition>
 ```

@@ -31,10 +31,10 @@ on:
       image:
         description: Edition to build an ISO for
         type: choice
-        default: monolith-gnome-nvidia
+        default: gnome-nvidia
         options:
-          - monolith-gnome-nvidia
-          - monolith-gnome
+          - gnome-nvidia
+          - gnome
       tag:
         description: Published image tag to base the ISO on
         type: string
@@ -52,18 +52,14 @@ jobs:
       contents: read
       packages: read
     steps:
-      # ISO builds need a lot of scratch space (image pull + live layer +
-      # squashfs); reclaim the chunky preinstalled toolchains the runner ships.
-      - name: Maximize build space
-        run: |
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android \
-            /usr/local/share/boost "${AGENT_TOOLSDIRECTORY:-/opt/hostedtoolcache}"
-          sudo docker image prune --all --force || true
-          df -h /
-
       # Need the iso/ live-prep layer (Containerfile, build.sh, iso.yaml).
       - name: Checkout
         uses: actions/checkout@v4
+
+      # Log in so podman can pull the published edition image from the (private)
+      # Forgejo registry to build the live-prep layer on top of.
+      - name: Log in to Forgejo registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | sudo podman login forge.waywardinn.com -u "${{ github.actor }}" --password-stdin
 
       # Build the transient live image on top of the published edition image.
       # sudo podman so the image lands in root's container storage, which is
@@ -72,7 +68,7 @@ jobs:
         run: |
           sudo podman build \
             --cap-add sys_admin --security-opt label=disable --squash \
-            --build-arg BASE_IMAGE=ghcr.io/mondrethos/${{ inputs.image }}:${{ inputs.tag }} \
+            --build-arg BASE_IMAGE=forge.waywardinn.com/monolith-os/${{ inputs.image }}:${{ inputs.tag }} \
             -t localhost/monolith-live:latest \
             -f iso/Containerfile iso/
 

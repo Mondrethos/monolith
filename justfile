@@ -7,8 +7,8 @@
 
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
-export BB_REGISTRY := "ghcr.io"
-export BB_REGISTRY_NAMESPACE := "mondrethos"
+export BB_REGISTRY := "forge.waywardinn.com"
+export BB_REGISTRY_NAMESPACE := "monolith-os"
 
 export BB_GENISO_VARIANT := "Silverblue"
 
@@ -30,14 +30,14 @@ generate-secureboot-key:
         -out ./files/system/etc/pki/akmods/certs/akmods-monolith.der
     @echo
     @echo "Wrote MOK.priv (keep secret) and files/system/.../akmods-monolith.der (commit)."
-    @echo "Add MOK.priv to GitHub as the KERNEL_SIGNING_SECRET secret, base64-encoded:"
-    @echo "  base64 -w0 MOK.priv | gh secret set KERNEL_SIGNING_SECRET"
+    @echo "Add MOK.priv as the KERNEL_SIGNING_SECRET secret in Forgejo, base64-encoded:"
+    @echo "  base64 -w0 MOK.priv   # paste at forge.waywardinn.com/monolith-os/monolith/settings/actions/secrets"
 
 # Build an installable *live* ISO for a published image, into .iso/. Mirrors the
 # Generate ISO workflow: build the transient live-prep layer (iso/) on top of
 # the image, then run titanoboa over it. Needs podman + sudo. (Secure Boot is
 # image-side, not in the ISO; boot the live ISO with Secure Boot disabled.)
-generate-iso image="ghcr.io/mondrethos/monolith-gnome-nvidia:latest":
+generate-iso image="forge.waywardinn.com/monolith-os/gnome-nvidia:latest":
     mkdir -p .iso
     sudo podman build \
         --cap-add sys_admin --security-opt label=disable --squash \

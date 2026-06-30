@@ -29,27 +29,27 @@ jobs:
             sudo apt-get install -y -qq skopeo
           fi
 
-      - name: Log in to GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Log in to Forgejo registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | podman login forge.waywardinn.com -u "${{ github.actor }}" --password-stdin
 
       - name: Determine previous and current image tags
         id: tags
         run: |
           set -euo pipefail
-          owner="${{ github.repository_owner }}"
           # Diff the GNOME base for package tables (the NVIDIA edition is the same
-          # base plus the driver). monolith-gnome is the canonical base image.
-          image="ghcr.io/${owner,,}/monolith-gnome"
+          # base plus the driver). gnome is the canonical base image.
+          registry="forge.waywardinn.com/monolith-os"
+          image="$registry/gnome"
           echo "image=$image" >> "$GITHUB_OUTPUT"
 
           # All published editions (recipes/recipe-*.yml is the source of truth),
           # non-NVIDIA first, for the per-edition "How to rebase" section.
           editions=()
           for r in recipes/recipe-*.yml; do
-            case "$r" in *nvidia*) ;; *) editions+=("ghcr.io/${owner,,}/$(awk '/^name:/{print $2; exit}' "$r")") ;; esac
+            case "$r" in *nvidia*) ;; *) editions+=("$registry/$(awk '/^name:/{print $2; exit}' "$r")") ;; esac
           done
           for r in recipes/recipe-*.yml; do
-            case "$r" in *nvidia*) editions+=("ghcr.io/${owner,,}/$(awk '/^name:/{print $2; exit}' "$r")") ;; esac
+            case "$r" in *nvidia*) editions+=("$registry/$(awk '/^name:/{print $2; exit}' "$r")") ;; esac
           done
           ( IFS=,; echo "images=${editions[*]}" >> "$GITHUB_OUTPUT" )
 
@@ -130,10 +130,23 @@ jobs:
 
       - name: Create release
         if: steps.tags.outputs.skip != 'true'
-        uses: softprops/action-gh-release@v3
-        with:
-          name: ${{ steps.changelog.outputs.TITLE }}
-          tag_name: ${{ steps.changelog.outputs.TAG }}
-          target_commitish: ${{ github.sha }}
-          body_path: ./changelog.md
-          make_latest: true
+        env:
+          FORGEJO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TITLE: ${{ steps.changelog.outputs.TITLE }}
+          TAG: ${{ steps.changelog.outputs.TAG }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # No softprops-equivalent action is wired up for Forgejo here; create the
+          # release through the Gitea-compatible API. Forgejo creates the git tag at
+          # target_commitish if absent and treats the newest non-draft/non-prerelease
+          # release as "latest".
+          payload=$(jq -n \
+            --arg tag "$TAG" --arg target "$SHA" \
+            --arg name "$TITLE" --rawfile body ./changelog.md \
+            '{tag_name:$tag, target_commitish:$target, name:$name, body:$body, draft:false, prerelease:false}')
+          curl -fsS -X POST \
+            -H "Authorization: token $FORGEJO_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data "$payload" \
+            "${{ github.server_url }}/api/v1/repos/${{ github.repository }}/releases"

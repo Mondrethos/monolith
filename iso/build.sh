@@ -74,7 +74,7 @@ EOF
 # squashes only the rootfs (no embedded container copy), so Anaconda pulls the
 # image from the registry at install time. INSTALL_IMAGEREF is passed in from
 # the Containerfile's BASE_IMAGE.
-: "${INSTALL_IMAGEREF:=ghcr.io/mondrethos/monolith-gnome:latest}"
+: "${INSTALL_IMAGEREF:=forge.waywardinn.com/monolith-os/gnome:latest}"
 cat >/usr/share/anaconda/interactive-defaults.ks <<EOF
 ostreecontainer --url=${INSTALL_IMAGEREF} --transport=registry --no-signature-verification
 

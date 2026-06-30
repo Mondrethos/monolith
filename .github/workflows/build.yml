@@ -22,7 +22,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-      id-token: write
     strategy:
       fail-fast: false # stop GH from cancelling all matrix builds if one fails
       matrix:
@@ -58,13 +57,17 @@ jobs:
         with:
           recipe: ${{ matrix.recipe }}
           cosign_private_key: ${{ secrets.SIGNING_SECRET }}
-          registry_token: ${{ github.token }}
+          # Push to the self-hosted Forgejo registry under the monolith-os org,
+          # authenticating with the Forgejo Actions token.
+          registry: forge.waywardinn.com
+          registry_namespace: monolith-os
+          registry_username: ${{ github.actor }}
+          registry_token: ${{ secrets.GITHUB_TOKEN }}
           pr_event_number: ${{ github.event.number }}
           # We checked out above (to stage MOK.priv); don't let the action wipe it.
           skip_checkout: true
-
-          # enabled by default, disable if your image is small and you want faster builds
-          maximize_build_space: true
+          # Self-hosted runner brings its own disk; no GH-runner space to reclaim.
+          maximize_build_space: false
 
   generate-release:
     name: Generate Release

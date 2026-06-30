@@ -158,7 +158,7 @@ def commits_section(workdir: str, prev_rev: str, curr_rev: str, repo: str) -> st
         if not line:
             continue
         full, short, author, subject = line.split("\x1f")
-        rows += f"\n| [`{short}`](https://github.com/{repo}/commit/{full}) | {subject} | {author} |"
+        rows += f"\n| [`{short}`](https://forge.waywardinn.com/{repo}/commit/{full}) | {subject} | {author} |"
     if not rows:
         return ""
     return "### Commits\n| Hash | Subject | Author |\n| --- | --- | --- |" + rows + "\n\n"
@@ -209,8 +209,8 @@ def main() -> None:
         body += args.handwritten + "\n\n"
     body += (
         f"Changes from the previous build [`{prev_release}`]"
-        f"(https://github.com/{args.repo}/releases/tag/{prev_release}) "
-        f"to [`{curr_release}`](https://github.com/{args.repo}/releases/tag/{curr_release}).\n\n"
+        f"(https://forge.waywardinn.com/{args.repo}/releases/tag/{prev_release}) "
+        f"to [`{curr_release}`](https://forge.waywardinn.com/{args.repo}/releases/tag/{curr_release}).\n\n"
     )
     if present:
         names = ", ".join(f"`{e}`" for e in present)
