@@ -63,6 +63,10 @@ jobs:
         with:
           recipe: ${{ matrix.recipe }}
           cosign_private_key: ${{ secrets.SIGNING_SECRET }}
+          # Pin the CLI version. Otherwise the action resolves "latest" by curling
+          # api.github.com with `Authorization: Bearer ${{ github.token }}` — and
+          # github.com 401s on a Forgejo token. A set cli_version skips that lookup.
+          cli_version: v0.9.35
           # Push to the self-hosted Forgejo registry under the monolith-os org,
           # authenticating with the Forgejo Actions token.
           registry: forge.waywardinn.com
